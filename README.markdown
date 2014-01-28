@@ -200,7 +200,7 @@ The simplest way to synchronize a collection `myData` from db `myDb` to index `M
 If you want to map an attribute to a specific index field, you can configure it creating a `algolia_remap_<INDEXNAME>.json` JSON configuration file:
 
       {
-        "['user']['email']": "[email]"
+        "['user']['email']": "['email']"
       }
 
 ##### Example
