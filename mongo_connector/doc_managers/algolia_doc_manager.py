@@ -146,12 +146,12 @@ class DocManager():
     def apply_remap(self, doc):
         if not self.attributes_remap:
             return doc
-        remapped_doc = doc 
+        remapped_doc = doc
         for key, value in self.attributes_remap.items():
             exec("remapped_doc" + value + " = self.serialize(" + "doc" + key + ")")
-            exec('del remapped_doc' + key) 
+            exec('del remapped_doc' + key)
         return remapped_doc
-                
+
     def upsert(self, doc):
         """ Update or insert a document into Algolia
         """
@@ -165,7 +165,8 @@ class DocManager():
             doc = self.apply_remap(doc)
             doc['_ts'] = last_update
             doc[self.unique_key] = doc['objectID'] = self.last_object_id
-            exec(re.sub(r"_\$", "doc", self.postproc))
+            if self.postproc is not None:
+                exec(re.sub(r"_\$", "doc", self.postproc))
             self.batch.append({ 'action': 'addObject', 'body': doc })
             if len(self.batch) >= DocManager.BATCH_SIZE:
                 self.commit()
@@ -200,7 +201,7 @@ class DocManager():
                 if len(self.batch) == 0:
                     return
                 self.index.batch({ 'requests': self.batch })
-		self.index.setSettings({ 'userData': { 'lastObjectID': self.last_object_id } })
+                self.index.setSettings({ 'userData': { 'lastObjectID': self.last_object_id } })
                 self.batch = []
         except algoliasearch.AlgoliaException as e:
             raise errors.ConnectionFailed("Could not connect to Algolia Search: %s" % e)
