@@ -165,7 +165,8 @@ class DocManager():
             doc = self.apply_remap(doc)
             doc['_ts'] = last_update
             doc[self.unique_key] = doc['objectID'] = self.last_object_id
-            exec(re.sub(r"_\$", "doc", self.postproc))
+            if self.postproc is not None:
+                exec(re.sub(r"_\$", "doc", self.postproc))
             self.batch.append({ 'action': 'addObject', 'body': doc })
             if len(self.batch) >= DocManager.BATCH_SIZE:
                 self.commit()
