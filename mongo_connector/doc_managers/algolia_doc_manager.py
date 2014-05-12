@@ -152,7 +152,7 @@ class DocManager():
             exec('del remapped_doc' + key)
         return remapped_doc
 
-    def upsert(self, doc):
+    def upsert(self, doc, raw_update_operation=None):
         """ Update or insert a document into Algolia
         """
         with self.mutex:
@@ -163,6 +163,9 @@ class DocManager():
                 self.batch.append({ 'action': 'deleteObject', 'body': {'objectID': self.last_object_id } })
                 return
             doc = self.apply_remap(doc)
+            if raw_update_operation and not (set(raw_update_operation.keys()) & set(doc.keys())):
+                # no update found
+                return
             doc['_ts'] = last_update
             doc[self.unique_key] = doc['objectID'] = self.last_object_id
             if self.postproc is not None:
