@@ -66,6 +66,13 @@ class DocManager():
         except IOError: # No filter file
             self.attributes_remap = None
             logging.info("Algolia Connector: Start without remapper.")
+        try:
+            f = open("algolia_postproc_" + index, 'r')
+            self.postproc = f.read()
+            logging.info("Algolia Connector: Start with post processing.")
+        except IOError: # No filter file
+            self.postproc = None
+            logging.info("Algolia Connector: Start without post processing.")
 
 
     def stop(self):
@@ -158,6 +165,7 @@ class DocManager():
             doc = self.apply_remap(doc)
             doc['_ts'] = last_update
             doc[self.unique_key] = doc['objectID'] = self.last_object_id
+            exec(re.sub(r"_\$", "doc", self.postproc))
             self.batch.append({ 'action': 'addObject', 'body': doc })
             if len(self.batch) >= DocManager.BATCH_SIZE:
                 self.commit()
