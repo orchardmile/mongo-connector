@@ -152,6 +152,9 @@ class DocManager():
             exec('del remapped_doc' + key)
         return remapped_doc
 
+    def update(self, doc, update_spec):
+        self.upsert(self.apply_update(doc, update_spec))
+
     def upsert(self, doc):
         """ Update or insert a document into Algolia
         """
