@@ -26,11 +26,12 @@ import bson
 
 from algoliasearch import algoliasearch
 from mongo_connector import errors
+from mongo_connector.doc_managers import DocManagerBase
 from threading import Timer, RLock
 
 decoder = json.JSONDecoder()
 
-class DocManager():
+class DocManager(DocManagerBase):
     """The DocManager class creates a connection to the Algolia engine and
         adds/removes documents, and in the case of rollback, searches for them.
 
