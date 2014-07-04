@@ -266,6 +266,30 @@ The connector will send:
     {
       "<ARRAY_ATTRIBUTE_NAME>": ["algolia", "AlGoLia"]
     }
+    
+##### Filter an object attribute in an array sent to Algolia
+
+To select all elements from attribute `status` matching a specific condition:
+
+    {
+      "status": { "action": "", "outdated" : "_$ == false" }
+    }
+
+Considering the following object:
+
+    {
+      "status" :    [
+                                        {"action": "send", "outdated": "true"},
+                                        {"action": "in transit", "outdated": true},
+                                        {"action": "receive", "outdated": false}
+                                    ]
+    }
+
+The connector will send:
+
+    {
+      "status": [{"action": "receive", "outdated": false}]
+    }
 
 ### Advanced nested objects filtering
 
@@ -286,6 +310,30 @@ The connector will send:
       {
         "<ATTRIBUTE_NAME>": { "pos": 42}
       }
+
+### Post processing
+
+You can modify the attributes sent to Algolia creating a `algolia_postproc_INDEXNAME.json` Python script file:
+
+    if (_$.get("<ATTRIBUTE_NAME>") == 0):
+        _$["<ATTRIBUTE_NAME>"] = false
+    else:
+        _$["<ATTRIBUTE_NAME>"] = true
+        
+**Note**: 
+- `_$` represents the record.
+
+Considering the following object:
+
+    {
+        "<ATTRIBUTE_NAME>": 0
+    }
+    
+The connector will send:
+
+    {
+        "<ATTRIBUTE_NAME>": false
+    }
 
 ## Usage With Solr
 
