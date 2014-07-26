@@ -230,6 +230,6 @@ class DocManager(DocManagerBase):
 
     def get_last_object_id(self):
         try:
-            return (self.index.getSettings()['userData'] or {}).get('lastObjectID', None)
+            return (self.index.getSettings().get('userData', {})).get('lastObjectID', None)
         except algoliasearch.AlgoliaException as e:
             raise errors.ConnectionFailed("Could not connect to Algolia Search: %s" % e)
