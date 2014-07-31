@@ -163,15 +163,15 @@ class DocManager(DocManagerBase):
             self.last_object_id = str(doc[self.unique_key]) # mongodb ObjectID is not serializable
             last_update = str(date.today) if not "_ts" in doc else doc['_ts']
             doc, state = self.apply_filter(doc, self.attributes_filter)
-            if not state: # delete in case of update
-                self.batch.append({ 'action': 'deleteObject', 'body': {'objectID': self.last_object_id } })
-                return
+            #if not state: # delete in case of update
+            #    self.batch.append({ 'action': 'deleteObject', 'body': {'objectID': self.last_object_id } })
+            #    return
             doc = self.apply_remap(doc)
             doc['_ts'] = last_update
             doc[self.unique_key] = doc['objectID'] = self.last_object_id
             if self.postproc is not None:
                 exec(re.sub(r"_\$", "doc", self.postproc))
-            self.batch.append({ 'action': 'addObject', 'body': doc })
+            self.batch.append({ 'action': 'updateObject', 'body': doc })
             if len(self.batch) >= DocManager.BATCH_SIZE:
                 self.commit()
 
