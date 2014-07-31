@@ -49,7 +49,7 @@ class ElasticsearchTestCase(unittest.TestCase):
 
     def setUp(self):
         # Create target index in elasticsearch
-        self.elastic_conn.indices.create(index='test.test')
+        self.elastic_conn.indices.create(index='test.test', ignore=400)
         self.elastic_conn.cluster.health(wait_for_status='yellow',
                                          index='test.test')
 
@@ -157,9 +157,6 @@ class TestElastic(ElasticsearchTestCase):
             # Allow some time for update to propagate
             time.sleep(1)
             replicated = next(self._search())
-            # Remove add'l fields until these are stored in a separate ES index
-            replicated.pop("_ts")
-            replicated.pop("ns")
             self.assertEqual(replicated, updated)
 
         # Update by adding a field. Note that ES can't mix types within an array
