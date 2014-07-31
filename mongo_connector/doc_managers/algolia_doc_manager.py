@@ -39,7 +39,7 @@ def clean_path(dirty):
     # mongo op dot-notation style:
     return dirty.split('.')
 
-def get_at(doc, path):
+def get_at(doc, path, create_anyway = False):
     node = doc
     last = len(path) - 1
     if last == 0:
@@ -49,12 +49,14 @@ def get_at(doc, path):
             node = node[edge]
         elif index == last:
             return None
-        else:
+        elif create_anyway:
             node = node[edge] = {}
+        else:
+            node = {}
     return node
 
 def set_at(doc, path, value):
-    node = get_at(doc, path[:-1])
+    node = get_at(doc, path[:-1], create_anyway = True)
     node[path[-1]] = value
 
 def unix_time(dt = datetime.now()):
