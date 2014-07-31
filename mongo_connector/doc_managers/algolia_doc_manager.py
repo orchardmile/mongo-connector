@@ -147,7 +147,7 @@ class DocManager(DocManagerBase):
     def apply_remap(self, doc):
         if not self.attributes_remap:
             return doc
-        remapped_doc = doc
+        remapped_doc = doc.copy()
         for key, value in self.attributes_remap.items():
             exec("remapped_doc" + value + " = self.serialize(" + "doc" + key + ")")
             exec('del remapped_doc' + key)
