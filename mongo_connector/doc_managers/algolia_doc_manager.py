@@ -196,9 +196,6 @@ class DocManager(DocManagerBase):
             source_key = clean_path(raw_source_key)
             target_key = clean_path(raw_target_key)
 
-            if target_key is '*skip*':
-                continue
-
             # get the value from the source doc:
             value = get_at(doc, source_key)
 
