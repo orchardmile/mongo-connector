@@ -96,11 +96,21 @@ The simplest way to synchronize a collection `myData` from db `myDb` to index `M
 
 ### Attributes remapping
 
-If you want to map an attribute to a specific index field, you can configure it creating a `algolia_remap_<INDEXNAME>.json` JSON configuration file:
+If you want to map an attribute to a specific index field, you can configure it creating a 
+`algolia_remap_<INDEXNAME>.json` JSON configuration file:
+
+      {
+        "user.email": "email"
+      }
+
+Alternatively, you can use python-style subscript notation:
 
       {
         "['user']['email']": "['email']"
       }
+
+**Note**:
+- The remapping operation will run first.
 
 ##### Example
 
@@ -115,9 +125,6 @@ The connector will send:
       {
         "email": "my@algolia.com"
       }
-
-**Note**: Renaming an attribute to itself removes this attribute. It can be used to check if a field exists without sending it.
-
 
 ### Attributes filtering
 
@@ -146,6 +153,7 @@ The connector will send:
 - `_$` represents the value of the field.
 - An empty value for the check of a field is `True`.
 - You can put any line of python in the value of a field.
+- The filtering operation will run between remapping and post-processing.
 
 ##### Filter an array attribute sent to Algolia
 
@@ -213,7 +221,7 @@ The connector will send:
 
 ### Post processing
 
-You can modify the attributes sent to Algolia creating a `algolia_postproc_INDEXNAME.json` Python script file:
+You can modify the attributes sent to Algolia creating a `algolia_postproc_INDEXNAME.py` Python script file:
 
     if (_$.get("<ATTRIBUTE_NAME>") == 0):
         _$["<ATTRIBUTE_NAME>"] = false
@@ -222,6 +230,7 @@ You can modify the attributes sent to Algolia creating a `algolia_postproc_INDEX
         
 **Note**: 
 - `_$` represents the record.
+- The post-processing operation will run last.
 
 Considering the following object:
 
