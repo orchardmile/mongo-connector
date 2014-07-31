@@ -20,7 +20,7 @@
 import logging
 import re
 import json
-from datetime import date
+from datetime import datetime
 import bson.json_util as bsjson
 import bson
 
@@ -30,6 +30,14 @@ from mongo_connector.doc_managers import DocManagerBase
 from threading import Timer, RLock
 
 decoder = json.JSONDecoder()
+
+def unix_time(dt = datetime.now()):
+    epoch = datetime.utcfromtimestamp(0)
+    delta = dt - epoch
+    return delta.total_seconds()
+
+def unix_time_millis(dt = datetime.now()):
+    return int(round(unix_time(dt) * 1000.0))
 
 class DocManager(DocManagerBase):
     """The DocManager class creates a connection to the Algolia engine and
@@ -144,13 +152,51 @@ class DocManager(DocManagerBase):
                 exec("_all_root_ = _all_ " + _all_root_op_ + " _all_root_")
         return (filtered_doc, _all_root_)
 
+    def clean_path(self, dirty):
+        # python dictionary subscript style:
+        if re.match(r'^\[', dirty):
+            return re.split(r'\'\]\[\'', re.sub(r'^\[\'|\'\]$', '', dirty))
+        # mongo op dot-notation style:
+        return dirty.split('.')
+
+    def set_at(self, doc, path, value):
+        node = self.get_at(doc, path[:-1])
+        node[path[-1]] = value
+
+    def get_at(self, doc, path):
+        node = doc
+        last = len(path) - 1
+        if last == 0:
+            return doc.get(path[0])
+        for index, edge in enumerate(path):
+            if node.has_key(edge):
+                node = node[edge]
+            elif index == last:
+                return None
+            else:
+                node = node[edge] = {}
+        return node
+
     def apply_remap(self, doc):
         if not self.attributes_remap:
             return doc
-        remapped_doc = doc
-        for key, value in self.attributes_remap.items():
-            exec("remapped_doc" + value + " = self.serialize(" + "doc" + key + ")")
-            exec('del remapped_doc' + key)
+        remapped_doc = {}
+        for raw_source_key, raw_target_key in self.attributes_remap.items():
+            # clean the keys, making a list from possible notations:
+            source_key = self.clean_path(raw_source_key)
+            target_key = self.clean_path(raw_target_key)
+
+            if target_key is '*skip*':
+                continue
+
+            # get the value from the source doc:
+            value = self.get_at(doc, source_key)
+
+            # special case for "_ts" field:
+            if source_key == ['_ts'] and target_key == ["*ts*"]:
+                value = value if value else str(unix_time_millis())
+
+            self.set_at(remapped_doc, target_key, value)
         return remapped_doc
 
     def update(self, doc, update_spec):
@@ -161,17 +207,15 @@ class DocManager(DocManagerBase):
         """
         with self.mutex:
             self.last_object_id = str(doc[self.unique_key]) # mongodb ObjectID is not serializable
-            last_update = str(date.today) if not "_ts" in doc else doc['_ts']
             doc, state = self.apply_filter(doc, self.attributes_filter)
             if not state: # delete in case of update
                 self.batch.append({ 'action': 'deleteObject', 'body': {'objectID': self.last_object_id } })
                 return
-            doc = self.apply_remap(doc)
-            doc['_ts'] = last_update
-            doc[self.unique_key] = doc['objectID'] = self.last_object_id
+            remapped_doc = self.apply_remap(doc)
+            remapped_doc['objectID'] = self.last_object_id
             if self.postproc is not None:
                 exec(re.sub(r"_\$", "doc", self.postproc))
-            self.batch.append({ 'action': 'addObject', 'body': doc })
+            self.batch.append({ 'action': 'addObject', 'body': remapped_doc })
             if len(self.batch) >= DocManager.BATCH_SIZE:
                 self.commit()
 
