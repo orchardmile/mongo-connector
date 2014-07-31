@@ -23,6 +23,7 @@ import json
 from datetime import datetime
 import bson.json_util as bsjson
 import bson
+import copy
 
 from algoliasearch import algoliasearch
 from mongo_connector import errors
@@ -45,19 +46,25 @@ def get_at(doc, path, create_anyway = False):
     if last == 0:
         return doc.get(path[0])
     for index, edge in enumerate(path):
-        if node.has_key(edge):
+        if edge in node:
             node = node[edge]
         elif index == last:
             return None
         elif create_anyway:
             node = node[edge] = {}
         else:
-            node = {}
+            return None
     return node
 
 def set_at(doc, path, value):
     node = get_at(doc, path[:-1], create_anyway = True)
     node[path[-1]] = value
+
+def set_or_append(doc, path, value, append = False):
+    if append:
+        get_at(doc, path).append(value)
+    else:
+        set_at(doc, path, value)
 
 def unix_time(dt = datetime.now()):
     epoch = datetime.utcfromtimestamp(0)
@@ -66,6 +73,17 @@ def unix_time(dt = datetime.now()):
 
 def unix_time_millis(dt = datetime.now()):
     return int(round(unix_time(dt) * 1000.0))
+
+def filter_value(value, filter):
+    if filter == "":
+        return True
+    try:
+        return eval(re.sub(r'\$_', 'value', filter))
+    except Exception as e:
+        logging.warn("Error raised from expression: {filter} with value {value}".format(**locals()))
+        logging.warn(e)
+        # it should return false to prevent potentially sensitive data from being synced
+        return False
 
 class DocManager(DocManagerBase):
     """The DocManager class creates a connection to the Algolia engine and
@@ -130,55 +148,44 @@ class DocManager(DocManagerBase):
 
     def apply_filter(self, doc, filter):
         if not filter:
-            return doc, True
+            # alway return a new object:
+            return (copy.deepcopy(doc), True)
+
         filtered_doc = {}
-        _all_root_ = True if not "_all_" in filter or filter['_all_'] == "and" else False
-        _all_root_op_ = "and" if not "_all_" in filter or filter['_all_'] == "and" else "or"
-        for key, value in doc.items():
-            if key in filter:
-                if type(value) != list:
-                    append = False
-                    tabvalue = [value]
-                    filtered_doc[key] = {}
+
+        for raw_key, expr in filter.iteritems():
+            if raw_key == '*all*':
+                continue
+            key = clean_path(raw_key)
+            values = get_at(doc, key)
+            if type(values) == list:
+                set_at(filtered_doc, key, [])
+                append = True
+            else:
+                append = False
+                values = [values]
+
+            state = True
+            all_or_nothing = '*all*' in filter
+
+            for value in values:
+                if isinstance(value, dict):
+                    part, partState = self.apply_filter(value, filter[raw_key])
+                    if partState:
+                        set_or_append(filtered_doc, key, self.serialize(part), append)
+                    elif all_or_nothing:
+                        node = get_at(filtered_doc, key[:-1])
+                        del node[key[-1]]
+                        return filtered_doc, False
                 else:
-                    tabvalue = value
-                    filtered_doc[key] = []
-                    append = True
-                _all_ = True if not "_all_" in filter[key] or filter[key]['_all_'] == "and" else False
-                _all_op_ = "and" if not "_all_" in filter[key] or filter[key]['_all_'] == "and" else "or"
-                for elt in tabvalue:
-                    if type(elt) == dict:
-                        part, state = self.apply_filter(elt, filter[key])
-                        if state:
-                            if append:
-                                filtered_doc[key].append(self.serialize(part))
-                            else:
-                                filtered_doc[key] = self.serialize(part)
-                        elif _all_op_ == "and":
-                            del filtered_doc[key]
-                            _all_ = False;
-                            break;
+                    if filter_value(value, filter[raw_key]):
+                        set_or_append(filtered_doc, key, self.serialize(value), append)
+                    elif all_or_nothing:
+                        return filtered_doc, False
                     else:
-                        try:
-                            if filter[key] == "" or eval(re.sub(r"_\$", "elt", filter[key])):
-                                state = True
-                                if append:
-                                    filtered_doc[key].append(self.serialize(elt))
-                                else:
-                                    filtered_doc[key] = self.serialize(elt)
-                            elif _all_op_ == "and":
-                                del filtered_doc[key]
-                                _all_ = False
-                                break;
-                            else:
-                                state = False
-                        except Exception as e:
-                            state = True
-                            logging.warn("Unable to compare during : " + key)
-                            logging.warn(e)
-                    exec("_all_ = _all_ " + _all_op_ + " state")
-                exec("_all_root_ = _all_ " + _all_root_op_ + " _all_root_")
-        return (filtered_doc, _all_root_)
+                        state = False
+
+        return (filtered_doc, state)
 
     def apply_remap(self, doc):
         if not self.attributes_remap:
@@ -210,15 +217,17 @@ class DocManager(DocManagerBase):
         """
         with self.mutex:
             self.last_object_id = str(doc[self.unique_key]) # mongodb ObjectID is not serializable
-            doc, state = self.apply_filter(doc, self.attributes_filter)
+            remapped_doc = self.apply_remap(doc)
+            remapped_doc['objectID'] = self.last_object_id
+
+            filtered_doc, state = self.apply_filter(remapped_doc, self.attributes_filter)
             if not state: # delete in case of update
                 self.batch.append({ 'action': 'deleteObject', 'body': {'objectID': self.last_object_id } })
                 return
-            remapped_doc = self.apply_remap(doc)
-            remapped_doc['objectID'] = self.last_object_id
+
             if self.postproc is not None:
                 exec(re.sub(r"_\$", "doc", self.postproc))
-            self.batch.append({ 'action': 'addObject', 'body': remapped_doc })
+            self.batch.append({ 'action': 'addObject', 'body': filtered_doc })
             if len(self.batch) >= DocManager.BATCH_SIZE:
                 self.commit()
 
