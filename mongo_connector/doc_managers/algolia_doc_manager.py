@@ -152,6 +152,7 @@ class DocManager(DocManagerBase):
             return (copy.deepcopy(doc), True)
 
         filtered_doc = {}
+        all_or_nothing = '*all*' in filter
 
         for raw_key, expr in filter.iteritems():
             if raw_key == '*all*':
@@ -166,7 +167,6 @@ class DocManager(DocManagerBase):
                 values = [values]
 
             state = True
-            all_or_nothing = '*all*' in filter
 
             for value in values:
                 if isinstance(value, dict):
