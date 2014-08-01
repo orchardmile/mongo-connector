@@ -132,7 +132,7 @@ class DocManager(DocManagerBase):
             self.attributes_remap = None
             logging.info("Algolia Connector: Start without remapper.")
         try:
-            f = open("algolia_postproc_" + index, 'r')
+            f = open("algolia_postproc_" + index + ".py", 'r')
             self.postproc = f.read()
             logging.info("Algolia Connector: Start with post processing.")
         except IOError:  # No "postproc" filter file
