@@ -221,7 +221,7 @@ The connector will send:
 
 ### Post processing
 
-You can modify the attributes sent to Algolia creating a `algolia_postproc_INDEXNAME.json` Python script file:
+You can modify the attributes sent to Algolia creating a `algolia_postproc_INDEXNAME.py` Python script file:
 
     if (_$.get("<ATTRIBUTE_NAME>") == 0):
         _$["<ATTRIBUTE_NAME>"] = false
