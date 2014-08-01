@@ -52,7 +52,7 @@ def get_at(doc, path, create_anyway=False):
         elif index == last or not create_anyway:
             # the key doesn't exist, and this is the end of the path:
             return None
-        else create_anyway:
+        else:
             # create anyway will create any missing nodes:
             node = node[edge] = {}
     return node
