@@ -32,12 +32,11 @@ from threading import Timer, RLock
 
 decoder = json.JSONDecoder()
 
-
 def clean_path(dirty):
-    # python dictionary subscript style:
+    # handle python dictionary subscription style, e.g. `"['key1']['key2']"`:
     if re.match(r'^\[', dirty):
         return re.split(r'\'\]\[\'', re.sub(r'^\[\'|\'\]$', '', dirty))
-    # mongo op dot-notation style:
+    # handle mongo op dot-notation style, e.g. `"key1.key2"`:
     return dirty.split('.')
 
 def get_at(doc, path, create_anyway = False):
@@ -48,19 +47,19 @@ def get_at(doc, path, create_anyway = False):
     for index, edge in enumerate(path):
         if edge in node:
             node = node[edge]
-        elif index == last:
+        elif index == last or not create_anyway:
+            # the key doesn't exist, and this is the end of the path:
             return None
-        elif create_anyway:
+        else create_anyway:
+            # create anyway will create any missing nodes:
             node = node[edge] = {}
-        else:
-            return None
     return node
 
 def set_at(doc, path, value):
     node = get_at(doc, path[:-1], create_anyway = True)
     node[path[-1]] = value
 
-def set_or_append(doc, path, value, append = False):
+def put_at(doc, path, value, append = False):
     if append:
         get_at(doc, path).append(value)
     else:
@@ -82,7 +81,7 @@ def filter_value(value, filter):
     except Exception as e:
         logging.warn("Error raised from expression: {filter} with value {value}".format(**locals()))
         logging.warn(e)
-        # it should return false to prevent potentially sensitive data from being synced
+        # it should return false to prevent potentially sensitive data from being synced:
         return False
 
 class DocManager(DocManagerBase):
@@ -111,24 +110,23 @@ class DocManager(DocManagerBase):
             json = open("algolia_fields_" + index + ".json", 'r')
             self.attributes_filter = decoder.decode(json.read())
             logging.info("Algolia Connector: Start with filter.")
-        except IOError: # No filter file
+        except IOError: # No "fields" filter file
             self.attributes_filter = None
             logging.info("Algolia Connector: Start without filter.")
         try:
             json = open("algolia_remap_" + index + ".json", 'r')
             self.attributes_remap = decoder.decode(json.read())
             logging.info("Algolia Connector: Start with remapper.")
-        except IOError: # No filter file
+        except IOError: # No "remap" filter file
             self.attributes_remap = None
             logging.info("Algolia Connector: Start without remapper.")
         try:
             f = open("algolia_postproc_" + index, 'r')
             self.postproc = f.read()
             logging.info("Algolia Connector: Start with post processing.")
-        except IOError: # No filter file
+        except IOError: # No "postproc" filter file
             self.postproc = None
             logging.info("Algolia Connector: Start without post processing.")
-
 
     def stop(self):
         """ Stops the instance
@@ -150,41 +148,36 @@ class DocManager(DocManagerBase):
         if not filter:
             # alway return a new object:
             return (copy.deepcopy(doc), True)
-
         filtered_doc = {}
         all_or_nothing = '*all*' in filter
-
         for raw_key, expr in filter.iteritems():
             if raw_key == '*all*':
                 continue
             key = clean_path(raw_key)
             values = get_at(doc, key)
+            state = True
             if type(values) == list:
-                set_at(filtered_doc, key, [])
                 append = True
+                set_at(filtered_doc, key, [])
             else:
                 append = False
                 values = [values]
-
-            state = True
-
             for value in values:
                 if isinstance(value, dict):
                     part, partState = self.apply_filter(value, filter[raw_key])
                     if partState:
-                        set_or_append(filtered_doc, key, self.serialize(part), append)
+                        put_at(filtered_doc, key, self.serialize(part), append)
                     elif all_or_nothing:
                         node = get_at(filtered_doc, key[:-1])
                         del node[key[-1]]
                         return filtered_doc, False
                 else:
                     if filter_value(value, filter[raw_key]):
-                        set_or_append(filtered_doc, key, self.serialize(value), append)
+                        put_at(filtered_doc, key, self.serialize(value), append)
                     elif all_or_nothing:
                         return filtered_doc, False
                     else:
                         state = False
-
         return (filtered_doc, state)
 
     def apply_remap(self, doc):
@@ -219,11 +212,12 @@ class DocManager(DocManagerBase):
 
             filtered_doc, state = self.apply_filter(remapped_doc, self.attributes_filter)
             if not state: # delete in case of update
-                self.batch.append({ 'action': 'deleteObject', 'body': {'objectID': self.last_object_id } })
+                self.batch.append({'action': 'deleteObject', 'body': {'objectID': self.last_object_id }})
                 return
 
             if self.postproc is not None:
                 exec(re.sub(r"_\$", "doc", self.postproc))
+
             self.batch.append({ 'action': 'addObject', 'body': filtered_doc })
             if len(self.batch) >= DocManager.BATCH_SIZE:
                 self.commit()
