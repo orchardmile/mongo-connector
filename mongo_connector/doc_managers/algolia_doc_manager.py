@@ -32,6 +32,7 @@ from threading import Timer, RLock
 
 decoder = json.JSONDecoder()
 
+
 def clean_path(dirty):
     # handle python dictionary subscription style, e.g. `"['key1']['key2']"`:
     if re.match(r'^\[', dirty):
@@ -39,7 +40,8 @@ def clean_path(dirty):
     # handle mongo op dot-notation style, e.g. `"key1.key2"`:
     return dirty.split('.')
 
-def get_at(doc, path, create_anyway = False):
+
+def get_at(doc, path, create_anyway=False):
     node = doc
     last = len(path) - 1
     if last == 0:
@@ -55,23 +57,28 @@ def get_at(doc, path, create_anyway = False):
             node = node[edge] = {}
     return node
 
+
 def set_at(doc, path, value):
-    node = get_at(doc, path[:-1], create_anyway = True)
+    node = get_at(doc, path[:-1], create_anyway=True)
     node[path[-1]] = value
 
-def put_at(doc, path, value, append = False):
+
+def put_at(doc, path, value, append=False):
     if append:
         get_at(doc, path).append(value)
     else:
         set_at(doc, path, value)
 
-def unix_time(dt = datetime.now()):
+
+def unix_time(dt=datetime.now()):
     epoch = datetime.utcfromtimestamp(0)
     delta = dt - epoch
     return delta.total_seconds()
 
-def unix_time_millis(dt = datetime.now()):
+
+def unix_time_millis(dt=datetime.now()):
     return int(round(unix_time(dt) * 1000.0))
+
 
 def filter_value(value, filter):
     if filter == "":
@@ -79,10 +86,13 @@ def filter_value(value, filter):
     try:
         return eval(re.sub(r'\$_', 'value', filter))
     except Exception as e:
-        logging.warn("Error raised from expression: {filter} with value {value}".format(**locals()))
+        logging.warn("""
+            Error raised from expression: {filter} with value {value}
+            """.format(**locals()))
         logging.warn(e)
-        # it should return false to prevent potentially sensitive data from being synced:
+        # return false to prevent potentially sensitive data from being synced:
         return False
+
 
 class DocManager(DocManagerBase):
     """The DocManager class creates a connection to the Algolia engine and
@@ -95,7 +105,8 @@ class DocManager(DocManagerBase):
     AUTO_COMMIT_DELAY_S = 10
 
     def __init__(self, url, unique_key='_id', **kwargs):
-        """ Establish a connection to Algolia using target url 'APPLICATION_ID:API_KEY:INDEX_NAME'
+        """Establish a connection to Algolia using target url
+            'APPLICATION_ID:API_KEY:INDEX_NAME'
         """
         application_id, api_key, index = url.split(':')
         self.algolia = algoliasearch.Client(application_id, api_key)
@@ -110,21 +121,21 @@ class DocManager(DocManagerBase):
             json = open("algolia_fields_" + index + ".json", 'r')
             self.attributes_filter = decoder.decode(json.read())
             logging.info("Algolia Connector: Start with filter.")
-        except IOError: # No "fields" filter file
+        except IOError:  # No "fields" filter file
             self.attributes_filter = None
             logging.info("Algolia Connector: Start without filter.")
         try:
             json = open("algolia_remap_" + index + ".json", 'r')
             self.attributes_remap = decoder.decode(json.read())
             logging.info("Algolia Connector: Start with remapper.")
-        except IOError: # No "remap" filter file
+        except IOError:  # No "remap" filter file
             self.attributes_remap = None
             logging.info("Algolia Connector: Start without remapper.")
         try:
             f = open("algolia_postproc_" + index, 'r')
             self.postproc = f.read()
             logging.info("Algolia Connector: Start with post processing.")
-        except IOError: # No "postproc" filter file
+        except IOError:  # No "postproc" filter file
             self.postproc = None
             logging.info("Algolia Connector: Start without post processing.")
 
@@ -134,9 +145,9 @@ class DocManager(DocManagerBase):
         self.auto_commit = False
 
     def remap(self, tree):
-        if self.attributes_remap is None or not tree in self.attributes_remap:
+        if self.attributes_remap is None or tree not in self.attributes_remap:
             return tree
-        return  self.attributes_remap[tree]
+        return self.attributes_remap[tree]
 
     def serialize(self, value):
         if isinstance(value, bson.objectid.ObjectId):
@@ -173,7 +184,8 @@ class DocManager(DocManagerBase):
                         return filtered_doc, False
                 else:
                     if filter_value(value, filter[raw_key]):
-                        put_at(filtered_doc, key, self.serialize(value), append)
+                        put_at(filtered_doc, key, self.serialize(value),
+                               append)
                     elif all_or_nothing:
                         return filtered_doc, False
                     else:
@@ -206,19 +218,22 @@ class DocManager(DocManagerBase):
         """ Update or insert a document into Algolia
         """
         with self.mutex:
-            self.last_object_id = str(doc[self.unique_key]) # mongodb ObjectID is not serializable
+            # mongodb ObjectID is not serializable:
+            self.last_object_id = str(doc[self.unique_key])
             remapped_doc = self.apply_remap(doc)
             remapped_doc['objectID'] = self.last_object_id
 
-            filtered_doc, state = self.apply_filter(remapped_doc, self.attributes_filter)
-            if not state: # delete in case of update
-                self.batch.append({'action': 'deleteObject', 'body': {'objectID': self.last_object_id }})
+            filtered_doc, state = self.apply_filter(remapped_doc,
+                                                    self.attributes_filter)
+            if not state:  # delete in case of update
+                self.batch.append({'action': 'deleteObject',
+                                   'body': {'objectID': self.last_object_id}})
                 return
 
             if self.postproc is not None:
                 exec(re.sub(r"_\$", "doc", self.postproc))
 
-            self.batch.append({ 'action': 'addObject', 'body': filtered_doc })
+            self.batch.append({'action': 'addObject', 'body': filtered_doc})
             if len(self.batch) >= DocManager.BATCH_SIZE:
                 self.commit()
 
@@ -226,7 +241,9 @@ class DocManager(DocManagerBase):
         """ Removes documents from Algolia
         """
         with self.mutex:
-            self.batch.append({ 'action': 'deleteObject', 'body': {"objectID" : str(doc[self.unique_key])} })
+            self.batch.append({'action': 'deleteObject',
+                               'body': {'objectID':
+                                        str(doc[self.unique_key])}})
             if len(self.batch) >= DocManager.BATCH_SIZE:
                 self.commit()
 
@@ -241,7 +258,8 @@ class DocManager(DocManagerBase):
             }
             return self.index.search('', params)['hits']
         except algoliasearch.AlgoliaException as e:
-            raise errors.ConnectionFailed("Could not connect to Algolia Search: %s" % e)
+            raise errors.ConnectionFailed(
+                "Could not connect to Algolia Search: %s" % e)
 
     def commit(self):
         """ Send the current batch of updates
@@ -251,11 +269,13 @@ class DocManager(DocManagerBase):
             with self.mutex:
                 if len(self.batch) == 0:
                     return
-                self.index.batch({ 'requests': self.batch })
-                self.index.setSettings({ 'userData': { 'lastObjectID': self.last_object_id } })
+                self.index.batch({'requests': self.batch})
+                self.index.setSettings({'userData': {'lastObjectID':
+                                                     self.last_object_id}})
                 self.batch = []
         except algoliasearch.AlgoliaException as e:
-            raise errors.ConnectionFailed("Could not connect to Algolia Search: %s" % e)
+            raise errors.ConnectionFailed(
+                "Could not connect to Algolia Search: %s" % e)
 
     def run_auto_commit(self):
         """ Periodically commits to Algolia.
@@ -273,10 +293,13 @@ class DocManager(DocManagerBase):
         try:
             return self.index.getObject(last_object_id)
         except algoliasearch.AlgoliaException as e:
-            raise errors.ConnectionFailed("Could not connect to Algolia Search: %s" % e)
+            raise errors.ConnectionFailed(
+                "Could not connect to Algolia Search: %s" % e)
 
     def get_last_object_id(self):
         try:
-            return (self.index.getSettings().get('userData', {})).get('lastObjectID', None)
+            return (self.index.getSettings().get('userData', {})).get(
+                'lastObjectID', None)
         except algoliasearch.AlgoliaException as e:
-            raise errors.ConnectionFailed("Could not connect to Algolia Search: %s" % e)
+            raise errors.ConnectionFailed(
+                "Could not connect to Algolia Search: %s" % e)
