@@ -235,9 +235,9 @@ class DocManager(DocManagerBase):
         """
         try:
             params = {
-                numericFilters: '_ts>=%d,_ts<=%d' % (start_ts, end_ts),
-                exhaustive: True,
-                hitsPerPage: 100000000
+                'numericFilters': '_ts>=%d,_ts<=%d' % (start_ts, end_ts),
+                'exhaustive': True,
+                'hitsPerPage': 100000000
             }
             return self.index.search('', params)['hits']
         except algoliasearch.AlgoliaException as e:
