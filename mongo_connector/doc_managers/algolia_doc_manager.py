@@ -34,6 +34,10 @@ decoder = json.JSONDecoder()
 
 
 def clean_path(dirty):
+    """
+    Convert a string of python subscript notation or mongo dot-notation to a
+    list of strings.
+    """
     # handle python dictionary subscription style, e.g. `"['key1']['key2']"`:
     if re.match(r'^\[', dirty):
         return re.split(r'\'\]\[\'', re.sub(r'^\[\'|\'\]$', '', dirty))
@@ -42,6 +46,10 @@ def clean_path(dirty):
 
 
 def get_at(doc, path, create_anyway=False):
+    """
+    Get the value, if any, of the document at the given path, optionally
+    mutating the document to create nested dictionaries as necessary.
+    """
     node = doc
     last = len(path) - 1
     if last == 0:
@@ -59,11 +67,13 @@ def get_at(doc, path, create_anyway=False):
 
 
 def set_at(doc, path, value):
+    """Set the value of the document at the given path."""
     node = get_at(doc, path[:-1], create_anyway=True)
     node[path[-1]] = value
 
 
 def put_at(doc, path, value, append=False):
+    """Set or append the given value to the document at the given path"""
     if append:
         get_at(doc, path).append(value)
     else:
@@ -81,17 +91,19 @@ def unix_time_millis(dt=datetime.now()):
 
 
 def serialize(value):
+    """If the value is an BSON ObjectId, cast it to a string."""
     if isinstance(value, bson.objectid.ObjectId):
         return str(value)
     else:
         return value
 
 
-def filter_value(value, filter):
-    if filter == "":
+def filter_value(value, expr):
+    """Evaluate the given expression in the context of the given value."""
+    if expr == "":
         return True
     try:
-        return eval(re.sub(r'\$_', 'value', filter))
+        return eval(re.sub(r'\$_', 'value', expr))
     except Exception as e:
         logging.warn("""
             Error raised from expression: {filter} with value {value}
