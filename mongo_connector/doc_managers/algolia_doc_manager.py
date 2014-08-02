@@ -219,15 +219,14 @@ class DocManager(DocManagerBase):
         """
         with self.mutex:
             # mongodb ObjectID is not serializable:
-            self.last_object_id = str(doc[self.unique_key])
-            remapped_doc = self.apply_remap(doc)
-            filtered_doc, state = self.apply_filter(remapped_doc,
+            last_object_id = str(doc[self.unique_key])
+            filtered_doc, state = self.apply_filter(self.apply_remap(doc),
                                                     self.attributes_filter)
-            filtered_doc['objectID'] = self.last_object_id
+            filtered_doc['objectID'] = last_object_id
 
             if not state:  # delete in case of update
                 self.batch.append({'action': 'deleteObject',
-                                   'body': {'objectID': self.last_object_id}})
+                                   'body': {'objectID': last_object_id}})
                 return
 
             if self.postproc is not None:
