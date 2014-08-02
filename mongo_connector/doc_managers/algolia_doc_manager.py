@@ -151,6 +151,30 @@ class DocManager(DocManagerBase):
         """
         self.auto_commit = False
 
+    def apply_remap(self, doc):
+        """
+        Copy the values of user-defined fields from the source document to
+        user-defined fields in a new target document, then return the target
+        document.
+        """
+        if not self.attributes_remap:
+            return doc
+        remapped_doc = {}
+        for raw_source_key, raw_target_key in self.attributes_remap.items():
+            # clean the keys, making a list from possible notations:
+            source_key = clean_path(raw_source_key)
+            target_key = clean_path(raw_target_key)
+
+            # get the value from the source doc:
+            value = get_at(doc, source_key)
+
+            # special case for "_ts" field:
+            if source_key == ['_ts'] and target_key == ["*ts*"]:
+                value = value if value else str(unix_time_millis())
+
+            set_at(remapped_doc, target_key, value)
+        return remapped_doc
+
     def apply_filter(self, doc, filter):
         """
         Recursively copy the values of user-defined fields from the source
@@ -195,30 +219,6 @@ class DocManager(DocManagerBase):
                 else:
                     state = False
         return (filtered_doc, state)
-
-    def apply_remap(self, doc):
-        """
-        Copy the values of user-defined fields from the source document to
-        user-defined fields in a new target document, then return the target
-        document.
-        """
-        if not self.attributes_remap:
-            return doc
-        remapped_doc = {}
-        for raw_source_key, raw_target_key in self.attributes_remap.items():
-            # clean the keys, making a list from possible notations:
-            source_key = clean_path(raw_source_key)
-            target_key = clean_path(raw_target_key)
-
-            # get the value from the source doc:
-            value = get_at(doc, source_key)
-
-            # special case for "_ts" field:
-            if source_key == ['_ts'] and target_key == ["*ts*"]:
-                value = value if value else str(unix_time_millis())
-
-            set_at(remapped_doc, target_key, value)
-        return remapped_doc
 
     def update(self, doc, update_spec):
         self.upsert(self.apply_update(doc, update_spec))
