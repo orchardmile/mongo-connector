@@ -221,10 +221,10 @@ class DocManager(DocManagerBase):
             # mongodb ObjectID is not serializable:
             self.last_object_id = str(doc[self.unique_key])
             remapped_doc = self.apply_remap(doc)
-            remapped_doc['objectID'] = self.last_object_id
-
             filtered_doc, state = self.apply_filter(remapped_doc,
                                                     self.attributes_filter)
+            filtered_doc['objectID'] = self.last_object_id
+
             if not state:  # delete in case of update
                 self.batch.append({'action': 'deleteObject',
                                    'body': {'objectID': self.last_object_id}})
