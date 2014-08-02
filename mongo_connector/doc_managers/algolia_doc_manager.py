@@ -34,10 +34,9 @@ decoder = json.JSONDecoder()
 
 
 def clean_path(dirty):
-    """
-    Convert a string of python subscript notation or mongo dot-notation to a
-    list of strings.
-    """
+    """Convert a string of python subscript notation or mongo dot-notation to a
+        list of strings.
+        """
     # handle python dictionary subscription style, e.g. `"['key1']['key2']"`:
     if re.match(r'^\[', dirty):
         return re.split(r'\'\]\[\'', re.sub(r'^\[\'|\'\]$', '', dirty))
@@ -46,10 +45,9 @@ def clean_path(dirty):
 
 
 def get_at(doc, path, create_anyway=False):
-    """
-    Get the value, if any, of the document at the given path, optionally
-    mutating the document to create nested dictionaries as necessary.
-    """
+    """Get the value, if any, of the document at the given path, optionally
+        mutating the document to create nested dictionaries as necessary.
+        """
     node = doc
     last = len(path) - 1
     if last == 0:
@@ -164,11 +162,10 @@ class DocManager(DocManagerBase):
         self.auto_commit = False
 
     def apply_remap(self, doc):
-        """
-        Copy the values of user-defined fields from the source document to
-        user-defined fields in a new target document, then return the target
-        document.
-        """
+        """Copy the values of user-defined fields from the source document to
+            user-defined fields in a new target document, then return the
+            targetdocument.
+            """
         if not self.attributes_remap:
             return doc
         remapped_doc = {}
@@ -188,16 +185,15 @@ class DocManager(DocManagerBase):
         return remapped_doc
 
     def apply_filter(self, doc, filter):
-        """
-        Recursively copy the values of user-defined fields from the source
-        document to a new target document by testing each value against a
-        corresponding user-defined expression. If the expression returns true
-        for a given value, copy that value to the corresponding field in the
-        target document. If the special `*all*` filter is used for a given
-        document and an adjacent field's expression returns false for a given
-        value, remove the document containing that field from its parent in the
-        tree of the target document.
-        """
+        """Recursively copy the values of user-defined fields from the source
+            document to a new target document by testing each value against a
+            corresponding user-defined expression. If the expression returns
+            true for a given value, copy that value to the corresponding field
+            in the target document. If the special `*all*` filter is used for
+            a given document and an adjacent field's expression returns false
+            for a given value, remove the document containing that field from
+            its parent in the tree of the target document.
+            """
         if not filter:
             # alway return a new object:
             return (copy.deepcopy(doc), True)
