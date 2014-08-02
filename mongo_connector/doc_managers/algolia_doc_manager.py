@@ -239,7 +239,7 @@ class DocManager(DocManagerBase):
                 return
 
             if self.postproc is not None:
-                exec(re.sub(r"_\$", "doc", self.postproc))
+                exec(re.sub(r"_\$", "filtered_doc", self.postproc))
 
             self.batch.append({'action': 'addObject', 'body': filtered_doc})
             if len(self.batch) >= DocManager.BATCH_SIZE:
