@@ -144,11 +144,6 @@ class DocManager(DocManagerBase):
         """
         self.auto_commit = False
 
-    def remap(self, tree):
-        if self.attributes_remap is None or tree not in self.attributes_remap:
-            return tree
-        return self.attributes_remap[tree]
-
     def serialize(self, value):
         if isinstance(value, bson.objectid.ObjectId):
             return str(value)
