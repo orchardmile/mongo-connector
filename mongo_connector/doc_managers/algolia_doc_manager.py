@@ -218,7 +218,6 @@ class DocManager(DocManagerBase):
         """ Update or insert a document into Algolia
         """
         with self.mutex:
-            # mongodb ObjectID is not serializable:
             last_object_id = str(doc[self.unique_key])
             filtered_doc, state = self.apply_filter(self.apply_remap(doc),
                                                     self.attributes_filter)
