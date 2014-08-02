@@ -80,6 +80,13 @@ def unix_time_millis(dt=datetime.now()):
     return int(round(unix_time(dt) * 1000.0))
 
 
+def serialize(value):
+    if isinstance(value, bson.objectid.ObjectId):
+        return str(value)
+    else:
+        return value
+
+
 def filter_value(value, filter):
     if filter == "":
         return True
@@ -144,12 +151,6 @@ class DocManager(DocManagerBase):
         """
         self.auto_commit = False
 
-    def serialize(self, value):
-        if isinstance(value, bson.objectid.ObjectId):
-            return str(value)
-        else:
-            return value
-
     def apply_filter(self, doc, filter):
         """
         Recursively copy the values of user-defined fields from the source
@@ -182,15 +183,14 @@ class DocManager(DocManagerBase):
                 if isinstance(value, dict):
                     part, partState = self.apply_filter(value, filter[raw_key])
                     if partState:
-                        put_at(filtered_doc, key, self.serialize(part), append)
+                        put_at(filtered_doc, key, serialize(part), append)
                     elif all_or_nothing:
                         node = get_at(filtered_doc, key[:-1])
                         del node[key[-1]]
                         return filtered_doc, False
                 else:
                     if filter_value(value, filter[raw_key]):
-                        put_at(filtered_doc, key, self.serialize(value),
-                               append)
+                        put_at(filtered_doc, key, serialize(value), append)
                     elif all_or_nothing:
                         return filtered_doc, False
                     else:
