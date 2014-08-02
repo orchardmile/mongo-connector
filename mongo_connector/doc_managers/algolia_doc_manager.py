@@ -239,9 +239,9 @@ class DocManager(DocManagerBase):
         """ Removes documents from Algolia
         """
         with self.mutex:
-            self.batch.append({'action': 'deleteObject',
-                               'body': {'objectID':
-                                        str(doc[self.unique_key])}})
+            self.batch.append(
+                {'action': 'deleteObject',
+                 'body': {'objectID': str(doc[self.unique_key])}})
             if len(self.batch) >= DocManager.BATCH_SIZE:
                 self.commit()
 
@@ -268,8 +268,8 @@ class DocManager(DocManagerBase):
                 if len(self.batch) == 0:
                     return
                 self.index.batch({'requests': self.batch})
-                self.index.setSettings({'userData': {'lastObjectID':
-                                                     self.last_object_id}})
+                self.index.setSettings(
+                    {'userData': {'lastObjectID': self.last_object_id}})
                 self.batch = []
         except algoliasearch.AlgoliaException as e:
             raise errors.ConnectionFailed(
