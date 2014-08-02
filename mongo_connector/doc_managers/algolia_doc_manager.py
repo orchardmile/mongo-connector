@@ -156,6 +156,16 @@ class DocManager(DocManagerBase):
             return value
 
     def apply_filter(self, doc, filter):
+        """
+        Recursively copy the values of user-defined fields from the source
+        document to a new target document by testing each value against a
+        corresponding user-defined expression. If the expression returns true
+        for a given value, copy that value to the corresponding field in the
+        target document. If the special `*all*` filter is used for a given
+        document and an adjacent field's expression returns false for a given
+        value, remove the document containing that field from its parent in the
+        tree of the target document.
+        """
         if not filter:
             # alway return a new object:
             return (copy.deepcopy(doc), True)
@@ -193,6 +203,11 @@ class DocManager(DocManagerBase):
         return (filtered_doc, state)
 
     def apply_remap(self, doc):
+        """
+        Copy the values of user-defined fields from the source document to
+        user-defined fields in a new target document, then return the target
+        document.
+        """
         if not self.attributes_remap:
             return doc
         remapped_doc = {}
