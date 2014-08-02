@@ -181,20 +181,19 @@ class DocManager(DocManagerBase):
                 values = [values]
             for value in values:
                 if isinstance(value, dict):
-                    part, partState = self.apply_filter(value, filter[raw_key])
-                    if partState:
-                        put_at(filtered_doc, key, serialize(part), append)
+                    sub, sub_state = self.apply_filter(value, filter[raw_key])
+                    if sub_state:
+                        put_at(filtered_doc, key, serialize(sub), append)
                     elif all_or_nothing:
                         node = get_at(filtered_doc, key[:-1])
                         del node[key[-1]]
                         return filtered_doc, False
+                elif filter_value(value, filter[raw_key]):
+                    put_at(filtered_doc, key, serialize(value), append)
+                elif all_or_nothing:
+                    return filtered_doc, False
                 else:
-                    if filter_value(value, filter[raw_key]):
-                        put_at(filtered_doc, key, serialize(value), append)
-                    elif all_or_nothing:
-                        return filtered_doc, False
-                    else:
-                        state = False
+                    state = False
         return (filtered_doc, state)
 
     def apply_remap(self, doc):
