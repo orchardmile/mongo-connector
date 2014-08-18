@@ -248,7 +248,7 @@ class DocManager(DocManagerBase):
             if self.postproc is not None:
                 exec(re.sub(r"_\$", "filtered_doc", self.postproc))
 
-            self.batch.append({'action': 'updateObject' if update else 'addObject', 'body': filtered_doc})
+            self.batch.append({'action': 'partialUpdateObject' if update else 'addObject', 'body': filtered_doc})
             if len(self.batch) >= DocManager.BATCH_SIZE:
                 self.commit()
 
