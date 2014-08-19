@@ -132,7 +132,7 @@ class DocManager(DocManagerBase):
         self.last_object_id = None
         self.batch = []
         self.mutex = RLock()
-        self.auto_commit = True
+        self.auto_commit = kwargs.pop('auto_commit', True)
         self.run_auto_commit()
         try:
             json = open("algolia_fields_" + index + ".json", 'r')
