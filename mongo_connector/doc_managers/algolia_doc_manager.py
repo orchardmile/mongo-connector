@@ -228,10 +228,18 @@ class DocManager(DocManagerBase):
                     state = False
         return (filtered_doc, state)
 
+    def apply_update(self, doc, update_spec):
+        doc = super(DocManager, self).apply_update(doc, update_spec)
+        if "$unset" in update_spec:
+            for attr in update_spec["$unset"]:
+                if update_spec["$unset"][attr]:
+                    doc[attr] = None
+        return doc
+
     def update(self, doc, update_spec):
         self.upsert(self.apply_update(doc, update_spec), True)
 
-    def upsert(self, doc, update):
+    def upsert(self, doc, update = False):
         """ Update or insert a document into Algolia
         """
         with self.mutex:
