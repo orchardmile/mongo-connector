@@ -284,7 +284,7 @@ class DocManager(DocManagerBase):
             raise errors.ConnectionFailed(
                 "Could not connect to Algolia Search: %s" % e)
 
-    def commit(self):
+    def commit(self, synchronous=False):
         """ Send the current batch of updates
         """
         try:
@@ -293,8 +293,9 @@ class DocManager(DocManagerBase):
                 if len(self.batch) == 0:
                     return
                 self.index.batch({'requests': self.batch})
-                self.index.setSettings(
-                    {'userData': {'lastObjectID': self.last_object_id}})
+                res = self.index.setSettings({'userData': {'lastObjectID': self.last_object_id}})
+                if synchronous:
+                    self.index.waitTask(res['taskID'])
                 self.batch = []
         except algoliasearch.AlgoliaException as e:
             raise errors.ConnectionFailed(
