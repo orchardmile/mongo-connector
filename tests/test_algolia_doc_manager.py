@@ -101,6 +101,7 @@ class AlgoliaDocManagerTester(AlgoliaTestCase):
         res = self.algolia_index.search('')["hits"]
         self.assertEqual(len(res), 0)
 
+    @unittest.skip("WIP")
     def test_get_last_doc(self):
         """Test the get_last_doc method.
 
@@ -108,25 +109,26 @@ class AlgoliaDocManagerTester(AlgoliaTestCase):
         """
         base = self.algolia_doc.get_last_doc()
         ts = base.get("_ts", 0) if base else 0
-        docc = {'_id': '4', 'name': 'Hare'}
+        docc = {'_id': '4', 'name': 'Hare', '_ts': ts+3, 'ns': 'test.test'}
         self.algolia_doc.upsert(docc)
-        docc = {'_id': '5', 'name': 'Tortoise'}
+        docc = {'_id': '5', 'name': 'Tortoise', '_ts': ts+2, 'ns': 'test.test'}
         self.algolia_doc.upsert(docc)
-        docc = {'_id': '6', 'name': 'Mr T.'}
+        docc = {'_id': '6', 'name': 'Mr T.', '_ts': ts+1, 'ns': 'test.test'}
         self.algolia_doc.upsert(docc)
         self.algolia_doc.commit(True)
 
         self.assertEqual(self.algolia_index.search('')['nbHits'], 3)
-        doc = self.algolia_doc.get_last_doc()
-        self.assertEqual(doc['_id'], '6')
-
-        docc = {'_id': '4', 'name': 'HareTwin'}
-        self.algolia_doc.upsert(docc)
-        self.algolia_doc.commit(True)
-
-        doc = self.algolia_doc.get_last_doc()
+        doc = self.elastic_doc.get_last_doc()
         self.assertEqual(doc['_id'], '4')
+
+        docc = {'_id': '6', 'name': 'HareTwin', '_ts': ts+4, 'ns': 'test.test'}
+        self.elastic_doc.upsert(docc)
+        self.algolia_doc.commit(True)
+
+        doc = self.elastic_doc.get_last_doc()
+        self.assertEqual(doc['_id'], '6')
         self.assertEqual(self.algolia_index.search('')['nbHits'], 3)
+
 
 if __name__ == '__main__':
     unittest.main()
