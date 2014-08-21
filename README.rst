@@ -56,6 +56,176 @@ simplest invocation resembles the following::
 mongo-connector has many other options besides those demonstrated above.
 To get a full listing with descriptions, try ``mongo-connector --help``.
 
+Usage With Algolia
+------------------
+
+The simplest way to synchronize a collection ``myData`` from db ``myDb`` to index ``MyIndex`` is::
+
+  mongo-connector -m localhost:27017 -n myDb.myCollection -d ./doc_managers/algolia_doc_manager.py -t MyApplicationID:MyApiKey:MyIndex
+
+**Note**: If you synchronize multiple collections with multiple indexes, do not forget to specify a specific connector configuration file for each index using the ``-o config.txt`` option (a config.txt file is created by default).
+
+Attributes remapping
+~~~~~~~~~~~~~~~~~~~~
+
+If you want to map an attribute to a specific index field, you can configure it creating a 
+``algolia_remap_<INDEXNAME>.json`` JSON configuration file::
+
+  {
+    "user.email": "email"
+  }
+
+Alternatively, you can use python-style subscript notation::
+
+  {
+    "['user']['email']": "['email']"
+  }
+
+**Note**:
+
+- The remapping operation will run first.
+
+Example
+"""""""
+
+Consider the following object::
+
+  {
+    "user": { "email": "my@algolia.com" }
+  }
+
+The connector will send::
+
+  {
+    "email": "my@algolia.com"
+  }
+
+Attributes filtering
+~~~~~~~~~~~~~~~~~~~~
+
+You can filter the attributes sent to Algolia creating a ``algolia_fields_INDEXNAME.json`` JSON configuration file::
+
+  {
+    "<ATTRIBUTE1_NAME>":"_$ < 0",
+    "<ATTRIBUTE2_NAME>": ""
+  }
+
+Considering the following object::
+
+  {
+    "<ATTRIBUTE1_NAME>" : 1,
+    "<ATTRIBUTE2_NAME>" : 2
+  }
+
+The connector will send::
+
+  {
+    "<ATTRIBUTE2_NAME>" : 2,
+  }
+
+
+**Note**: 
+
+- ``_$`` represents the value of the field.
+- An empty value for the check of a field is ``True``.
+- You can put any line of python in the value of a field.
+- The filtering operation will run between remapping and post-processing.
+
+Filter an array attribute sent to Algolia
+"""""""""""""""""""""""""""""""""""""""""
+
+To select all elements from attribute ``<ARRARRAY_ATTRIBUTE_NAME>`` matching a specific condition::
+
+  {
+    "<ARRAY_ATTRIBUTE_NAME>": "re.match(r'algolia', _$, re.I)"
+  }
+
+Considering the following object::
+
+  {
+    "<ARRAY_ATTRIBUTE_NAME>" : ["algolia", "AlGoLiA", "alogia"]
+  }
+
+The connector will send::
+
+  {
+    "<ARRAY_ATTRIBUTE_NAME>": ["algolia", "AlGoLia"]
+  }
+    
+Filter an object attribute in an array sent to Algolia
+""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+To select all elements from attribute ``status`` matching a specific condition::
+
+  {
+    "status": { "action": "", "outdated" : "_$ == false" }
+  }
+
+Considering the following object::
+
+  {
+    "status" : [
+      {"action": "send", "outdated": "true"},
+      {"action": "in transit", "outdated": true},
+      {"action": "receive", "outdated": false}
+    ]
+  }
+
+The connector will send::
+
+  {
+    "status": [{"action": "receive", "outdated": false}]
+  }
+
+Advanced nested objects filtering
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If you want to send a ``<ATTRIBUTE_NAME>`` attribute matching advanced filtering conditions, you can use::
+
+  {
+    "<ATTRIBUTE_NAME>": { "_all_" : "or", "neg": "_$ < 0", "pos": "_$ > 0"}
+  }
+
+Considering the following object::
+
+  {
+    "<ATTRIBUTE_NAME>": { "neg": 42, "pos": 42}
+  }
+
+The connector will send::
+
+  {
+    "<ATTRIBUTE_NAME>": { "pos": 42}
+  }
+
+Post processing
+~~~~~~~~~~~~~~~
+
+You can modify the attributes sent to Algolia creating a ``algolia_postproc_INDEXNAME.py`` Python script file::
+
+  if (_$.get("<ATTRIBUTE_NAME>") == 0):
+      _$["<ATTRIBUTE_NAME>"] = false
+  else:
+      _$["<ATTRIBUTE_NAME>"] = true
+        
+**Note**: 
+
+- ``_$`` represents the record.
+- The post-processing operation will run last.
+
+Considering the following object::
+
+  {
+      "<ATTRIBUTE_NAME>": 0
+  }
+    
+The connector will send::
+
+  {
+      "<ATTRIBUTE_NAME>": false
+  }
+
+
 Usage With Solr
 ---------------
 

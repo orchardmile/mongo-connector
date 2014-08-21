@@ -132,7 +132,7 @@ class DocManager(DocManagerBase):
         self.last_object_id = None
         self.batch = []
         self.mutex = RLock()
-        self.auto_commit = True
+        self.auto_commit = kwargs.pop('auto_commit', True)
         self.run_auto_commit()
         try:
             json = open("algolia_fields_" + index + ".json", 'r')
@@ -228,17 +228,25 @@ class DocManager(DocManagerBase):
                     state = False
         return (filtered_doc, state)
 
+    def apply_update(self, doc, update_spec):
+        doc = super(DocManager, self).apply_update(doc, update_spec)
+        if "$unset" in update_spec:
+            for attr in update_spec["$unset"]:
+                if update_spec["$unset"][attr]:
+                    doc[attr] = None
+        return doc
+
     def update(self, doc, update_spec):
         self.upsert(self.apply_update(doc, update_spec), True)
 
-    def upsert(self, doc, update):
+    def upsert(self, doc, update = False):
         """ Update or insert a document into Algolia
         """
         with self.mutex:
-            last_object_id = serialize(doc[self.unique_key])
+            self.last_object_id = serialize(doc[self.unique_key])
             filtered_doc, state = self.apply_filter(self.apply_remap(doc),
                                                     self.attributes_filter)
-            filtered_doc['objectID'] = last_object_id
+            filtered_doc['objectID'] = self.last_object_id
 
             #if not state:  # delete in case of update
             #    self.batch.append({'action': 'deleteObject',
@@ -276,7 +284,7 @@ class DocManager(DocManagerBase):
             raise errors.ConnectionFailed(
                 "Could not connect to Algolia Search: %s" % e)
 
-    def commit(self):
+    def commit(self, synchronous=False):
         """ Send the current batch of updates
         """
         try:
@@ -285,8 +293,9 @@ class DocManager(DocManagerBase):
                 if len(self.batch) == 0:
                     return
                 self.index.batch({'requests': self.batch})
-                self.index.setSettings(
-                    {'userData': {'lastObjectID': self.last_object_id}})
+                res = self.index.setSettings({'userData': {'lastObjectID': self.last_object_id}})
+                if synchronous:
+                    self.index.waitTask(res['taskID'])
                 self.batch = []
         except algoliasearch.AlgoliaException as e:
             raise errors.ConnectionFailed(
@@ -306,15 +315,14 @@ class DocManager(DocManagerBase):
         if last_object_id is None:
             return None
         try:
-            return self.index.getObject(last_object_id)
+            return self.index.getObject(str(last_object_id))
         except algoliasearch.AlgoliaException as e:
             raise errors.ConnectionFailed(
                 "Could not connect to Algolia Search: %s" % e)
 
     def get_last_object_id(self):
         try:
-            return (self.index.getSettings().get('userData', {})).get(
-                'lastObjectID', None)
+            return (self.index.getSettings().get('userData', {})).get('lastObjectID', None)
         except algoliasearch.AlgoliaException as e:
             raise errors.ConnectionFailed(
                 "Could not connect to Algolia Search: %s" % e)
