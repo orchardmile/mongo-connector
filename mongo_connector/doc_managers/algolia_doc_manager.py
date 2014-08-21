@@ -243,10 +243,10 @@ class DocManager(DocManagerBase):
         """ Update or insert a document into Algolia
         """
         with self.mutex:
-            last_object_id = serialize(doc[self.unique_key])
+            self.last_object_id = serialize(doc[self.unique_key])
             filtered_doc, state = self.apply_filter(self.apply_remap(doc),
                                                     self.attributes_filter)
-            filtered_doc['objectID'] = last_object_id
+            filtered_doc['objectID'] = self.last_object_id
 
             #if not state:  # delete in case of update
             #    self.batch.append({'action': 'deleteObject',
@@ -315,15 +315,14 @@ class DocManager(DocManagerBase):
         if last_object_id is None:
             return None
         try:
-            return self.index.getObject(last_object_id)
+            return self.index.getObject(str(last_object_id))
         except algoliasearch.AlgoliaException as e:
             raise errors.ConnectionFailed(
                 "Could not connect to Algolia Search: %s" % e)
 
     def get_last_object_id(self):
         try:
-            return (self.index.getSettings().get('userData', {})).get(
-                'lastObjectID', None)
+            return (self.index.getSettings().get('userData', {})).get('lastObjectID', None)
         except algoliasearch.AlgoliaException as e:
             raise errors.ConnectionFailed(
                 "Could not connect to Algolia Search: %s" % e)
