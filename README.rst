@@ -14,12 +14,7 @@ Getting Started
 Installation
 ~~~~~~~~~~~~
 
-The easiest way to install mongo-connector is with
-`pip <https://pypi.python.org/pypi/pip>`__::
-
-  pip install mongo-connector
-
-You can also install the development version of mongo-connector
+You can install the development version of mongo-connector
 manually::
 
   git clone https://github.com/10gen-labs/mongo-connector.git
