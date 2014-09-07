@@ -64,7 +64,7 @@ Attributes remapping
 ~~~~~~~~~~~~~~~~~~~~
 
 If you want to map an attribute to a specific index field, you can configure it creating a 
-``algolia_remap_<INDEXNAME>.json`` JSON configuration file::
+``algolia_remap_<INDEXNAME>.json`` JSON configuration file at the root of the mongo-connector folder::
 
   {
     "user.email": "email"
