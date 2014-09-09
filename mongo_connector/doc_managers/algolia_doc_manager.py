@@ -24,6 +24,7 @@ from datetime import datetime
 import bson.json_util as bsjson
 import bson
 import copy
+import urllib3
 
 from algoliasearch import algoliasearch
 from mongo_connector import errors
@@ -294,17 +295,20 @@ class DocManager(DocManagerBase):
                     return
                 self.index.batch({'requests': self.batch})
                 res = self.index.setSettings({'userData': {'lastObjectID': self.last_object_id}})
+                self.batch = []
                 if synchronous:
                     self.index.waitTask(res['taskID'])
-                self.batch = []
-        except algoliasearch.AlgoliaException as e:
-            raise errors.ConnectionFailed(
+        except (algoliasearch.AlgoliaException, urllib3.exceptions.MaxRetryError) as e:
+            raise errors.OperationFailed(
                 "Could not connect to Algolia Search: %s" % e)
 
     def run_auto_commit(self):
         """ Periodically commits to Algolia.
         """
-        self.commit()
+        try:
+            self.commit(True)
+        except Exception as e:
+            logging.warning(e)
         if self.auto_commit:
             Timer(DocManager.AUTO_COMMIT_DELAY_S, self.run_auto_commit).start()
 
