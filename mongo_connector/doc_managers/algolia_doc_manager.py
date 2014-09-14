@@ -200,7 +200,11 @@ class DocManager(DocManagerBase):
             return (copy.deepcopy(doc), True)
         filtered_doc = {}
         all_or_nothing = '*all*' in filter
-        for raw_key, expr in filter.iteritems():
+        try:
+            items = filter.iteritems()
+        except AttributeError:
+            items = filter.items();
+        for raw_key, expr in item:
             if raw_key == '*all*':
                 continue
             key = clean_path(raw_key)
