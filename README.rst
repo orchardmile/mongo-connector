@@ -17,7 +17,7 @@ Installation
 You can install the development version of mongo-connector
 manually::
 
-  git clone https://github.com/10gen-labs/mongo-connector.git
+  git clone https://github.com/algolia/mongo-connector.git
   cd mongo-connector
   python setup.py install
 
