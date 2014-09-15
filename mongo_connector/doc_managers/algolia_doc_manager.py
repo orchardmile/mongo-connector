@@ -204,7 +204,7 @@ class DocManager(DocManagerBase):
             items = filter.iteritems()
         except AttributeError:
             items = filter.items();
-        for raw_key, expr in item:
+        for raw_key, expr in items:
             if raw_key == '*all*':
                 continue
             key = clean_path(raw_key)
