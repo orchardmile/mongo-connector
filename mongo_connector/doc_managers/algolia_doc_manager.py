@@ -250,16 +250,10 @@ class DocManager(DocManagerBase):
                     doc[attr] = None
         return doc
 
-    def update(self, doc, update_spec):
+    def update(self, doc, update_spec, namespace = None, timestamp = None):
         self.upsert(self.apply_update(doc, update_spec), True)
 
-    def bulk_upsert(self, docs):
-        """Upsert each document in a set of documents.
-        """
-        for doc in docs:
-            self.upsert(doc)
-
-    def upsert(self, doc, update = False):
+    def upsert(self, doc, update = False, namespace = None, timestamp = None):
         """ Update or insert a document into Algolia
         """
         with self.mutex:
@@ -280,7 +274,7 @@ class DocManager(DocManagerBase):
             if len(self.batch) >= DocManager.BATCH_SIZE:
                 self.commit()
 
-    def remove(self, doc):
+    def remove(self, doc, namespace = None, timestamp = None):
         """ Removes documents from Algolia
         """
         with self.mutex:

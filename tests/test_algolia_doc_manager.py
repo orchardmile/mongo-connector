@@ -65,11 +65,11 @@ class AlgoliaDocManagerTester(AlgoliaTestCase):
 
     def test_bulk_upsert(self):
         """Test the bulk_upsert method."""
-        self.algolia_doc.bulk_upsert([])
+        self.algolia_doc.bulk_upsert([], *TESTARGS)
         self.algolia_doc.commit(True)
 
         docs = ({"_id": i} for i in range(100))
-        self.algolia_doc.bulk_upsert(docs)
+        self.algolia_doc.bulk_upsert(docs, *TESTARGS)
         self.algolia_doc.commit(True)
         res = self.algolia_index.search('', { 'hitsPerPage': 101 })["hits"]
         returned_ids = sorted(int(doc["_id"]) for doc in res)
@@ -78,7 +78,7 @@ class AlgoliaDocManagerTester(AlgoliaTestCase):
             self.assertEqual(r, i)
 
         docs = ({"_id": i, "weight": 2*i} for i in range(100))
-        self.algolia_doc.bulk_upsert(docs)
+        self.algolia_doc.bulk_upsert(docs, *TESTARGS)
         self.algolia_doc.commit(True)
 
         res = self.algolia_index.search('', { 'hitsPerPage': 101 })["hits"]
