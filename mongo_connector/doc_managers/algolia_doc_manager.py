@@ -17,19 +17,28 @@
 
     This file is a document manager for the Algolia search engine.
     """
+import base64
 import logging
-import re
 import json
-from datetime import datetime
-import bson.json_util as bsjson
-import bson
+import re
 import copy
-import urllib3
+from datetime import datetime
+
+from threading import Timer, RLock
+
+import bson.json_util
+import bson.json_util as bsjson
 
 from algoliasearch import algoliasearch
+import urllib3
+
 from mongo_connector import errors
-from mongo_connector.doc_managers import DocManagerBase
-from threading import Timer, RLock
+from mongo_connector.compat import u
+from mongo_connector.constants import (DEFAULT_COMMIT_INTERVAL,
+                                       DEFAULT_MAX_BULK)
+from mongo_connector.util import exception_wrapper, retry_until_ok
+from mongo_connector.doc_managers.doc_manager_base import DocManagerBase
+from mongo_connector.doc_managers.formatters import DefaultDocumentFormatter
 
 decoder = json.JSONDecoder()
 
@@ -243,6 +252,12 @@ class DocManager(DocManagerBase):
 
     def update(self, doc, update_spec):
         self.upsert(self.apply_update(doc, update_spec), True)
+
+    def bulk_upsert(self, docs):
+        """Upsert each document in a set of documents.
+        """
+        for doc in docs:
+            self.upsert(doc)
 
     def upsert(self, doc, update = False):
         """ Update or insert a document into Algolia

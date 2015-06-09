@@ -24,13 +24,16 @@
 import logging
 import pymongo
 
-from mongo_connector import errors
-from mongo_connector.doc_managers import DocManagerBase, exception_wrapper
-
+from gridfs import GridFS
+from mongo_connector import errors, constants
+from mongo_connector.util import exception_wrapper
+from mongo_connector.doc_managers.doc_manager_base import DocManagerBase
 
 wrap_exceptions = exception_wrapper({
     pymongo.errors.ConnectionFailure: errors.ConnectionFailed,
     pymongo.errors.OperationFailure: errors.OperationFailed})
+
+LOG = logging.getLogger(__name__)
 
 
 class DocManager(DocManagerBase):
@@ -55,8 +58,10 @@ class DocManager(DocManagerBase):
         except pymongo.errors.ConnectionFailure:
             raise errors.ConnectionFailed("Failed to connect to MongoDB")
         self.namespace_set = kwargs.get("namespace_set")
-        for namespace in self._namespaces():
-            self.mongo["__mongo_connector"][namespace].create_index("_ts")
+        self.chunk_size = kwargs.get('chunk_size', constants.DEFAULT_MAX_BULK)
+
+    def _db_and_collection(self, namespace):
+        return namespace.split('.', 1)
 
     @wrap_exceptions
     def _namespaces(self):
@@ -81,58 +86,135 @@ class DocManager(DocManagerBase):
     def stop(self):
         """Stops any running threads
         """
-        logging.info(
+        LOG.info(
             "Mongo DocManager Stopped: If you will not target this system "
-            "again with mongo-connector then please drop the database "
-            "__mongo_connector in order to return resources to the OS."
+            "again with mongo-connector then you may drop the database "
+            "__mongo_connector, which holds metadata for Mongo Connector."
         )
 
     @wrap_exceptions
-    def update(self, doc, update_spec):
+    def handle_command(self, doc, namespace, timestamp):
+        db, _ = self._db_and_collection(namespace)
+        if doc.get('dropDatabase'):
+            for new_db in self.command_helper.map_db(db):
+                self.mongo.drop_database(db)
+
+        if doc.get('renameCollection'):
+            a = self.command_helper.map_namespace(doc['renameCollection'])
+            b = self.command_helper.map_namespace(doc['to'])
+            if a and b:
+                self.mongo.admin.command(
+                    "renameCollection", a, to=b)
+
+        if doc.get('create'):
+            new_db, coll = self.command_helper.map_collection(
+                db, doc['create'])
+            if new_db:
+                self.mongo[new_db].create_collection(coll)
+
+        if doc.get('drop'):
+            new_db, coll = self.command_helper.map_collection(
+                db, doc['drop'])
+            if new_db:
+                self.mongo[new_db].drop_collection(coll)
+
+    @wrap_exceptions
+    def update(self, document_id, update_spec, namespace, timestamp):
         """Apply updates given in update_spec to the document whose id
         matches that of doc.
 
         """
-        db, coll = doc['ns'].split('.', 1)
+        db, coll = self._db_and_collection(namespace)
         updated = self.mongo[db][coll].find_and_modify(
-            {'_id': doc['_id']},
+            {'_id': document_id},
             update_spec,
             new=True
         )
         return updated
 
     @wrap_exceptions
-    def upsert(self, doc):
+    def upsert(self, doc, namespace, timestamp):
         """Update or insert a document into Mongo
         """
-        database, coll = doc['ns'].split('.', 1)
-        ts = doc.pop("_ts")
-        ns = doc.pop("ns")
+        database, coll = self._db_and_collection(namespace)
 
-        self.mongo["__mongo_connector"][ns].save({
+        self.mongo["__mongo_connector"][namespace].save({
             '_id': doc['_id'],
-            "_ts": ts,
-            "ns": ns
+            "_ts": timestamp,
+            "ns": namespace
         })
         self.mongo[database][coll].save(doc)
 
     @wrap_exceptions
-    def remove(self, doc):
+    def bulk_upsert(self, docs, namespace, timestamp):
+        def iterate_chunks():
+            dbname, collname = self._db_and_collection(namespace)
+            collection = self.mongo[dbname][collname]
+            meta_collection = self.mongo['__mongo_connector'][namespace]
+            more_chunks = True
+            while more_chunks:
+                bulk = collection.initialize_ordered_bulk_op()
+                bulk_meta = meta_collection.initialize_ordered_bulk_op()
+                for i in range(self.chunk_size):
+                    try:
+                        doc = next(docs)
+                        selector = {'_id': doc['_id']}
+                        bulk.find(selector).upsert().replace_one(doc)
+                        bulk_meta.find(selector).upsert().replace_one({
+                            '_id': doc['_id'],
+                            'ns': namespace,
+                            '_ts': timestamp
+                        })
+                    except StopIteration:
+                        more_chunks = False
+                        if i > 0:
+                            yield bulk, bulk_meta
+                        break
+                if more_chunks:
+                    yield bulk, bulk_meta
+
+        for bulk_op, meta_bulk_op in iterate_chunks():
+            try:
+                bulk_op.execute()
+                meta_bulk_op.execute()
+            except pymongo.errors.DuplicateKeyError as e:
+                LOG.warn('Continuing after DuplicateKeyError: '
+                         + str(e))
+
+    @wrap_exceptions
+    def remove(self, document_id, namespace, timestamp):
         """Removes document from Mongo
 
         The input is a python dictionary that represents a mongo document.
         The documents has ns and _ts fields.
         """
-        database, coll = doc['ns'].split('.', 1)
-        self.mongo[database][coll].remove({'_id': doc["_id"]})
-        self.mongo["__mongo_connector"][doc['ns']].remove({'_id': doc["_id"]})
+        database, coll = self._db_and_collection(namespace)
+
+        doc2 = self.mongo['__mongo_connector'][namespace].find_and_modify(
+            {'_id': document_id}, remove=True)
+        if (doc2 and doc2.get('gridfs_id')):
+            GridFS(self.mongo[database], coll).delete(doc2['gridfs_id'])
+        else:
+            self.mongo[database][coll].remove({'_id': document_id})
+
+    @wrap_exceptions
+    def insert_file(self, f, namespace, timestamp):
+        database, coll = self._db_and_collection(namespace)
+
+        id = GridFS(self.mongo[database], coll).put(f, filename=f.filename)
+        self.mongo["__mongo_connector"][namespace].save({
+            '_id': f._id,
+            '_ts': timestamp,
+            'ns': namespace,
+            'gridfs_id': id
+        })
 
     @wrap_exceptions
     def search(self, start_ts, end_ts):
         """Called to query Mongo for documents in a time range.
         """
         for namespace in self._namespaces():
-            database, coll = namespace.split('.', 1)
+            database, coll = self._db_and_collection(namespace)
             for ts_ns_doc in self.mongo["__mongo_connector"][namespace].find(
                 {'_ts': {'$lte': end_ts,
                          '$gte': start_ts}}
@@ -150,22 +232,9 @@ class DocManager(DocManagerBase):
         """
         def docs_by_ts():
             for namespace in self._namespaces():
-                database, coll = namespace.split('.', 1)
+                database, coll = self._db_and_collection(namespace)
                 mc_coll = self.mongo["__mongo_connector"][namespace]
                 for ts_ns_doc in mc_coll.find(limit=1).sort('_ts', -1):
                     yield ts_ns_doc
 
         return max(docs_by_ts(), key=lambda x: x["_ts"])
-
-    @wrap_exceptions
-    def _remove(self):
-        """For test purposes only. Removes all documents in test.test
-        """
-        self.mongo['test']['test'].remove()
-
-    @wrap_exceptions
-    def _search(self):
-        """For test purposes only. Performs search on MongoDB with empty query.
-        Does not have to be implemented.
-        """
-        return self.mongo['test']['test'].find()

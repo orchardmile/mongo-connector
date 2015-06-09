@@ -28,7 +28,12 @@ Operating System :: Microsoft :: Windows
 Operating System :: POSIX
 """
 
+import os
+import platform
 import sys
+from distutils.core import Command
+from distutils.dir_util import mkpath, remove_tree
+from distutils.file_util import copy_file
 try:
     from setuptools import setup
 except ImportError:
@@ -36,11 +41,12 @@ except ImportError:
     use_setuptools()
     from setuptools import setup
 
-extra_opts = {"test_suite": "tests"}
+extra_opts = {"test_suite": "tests",
+              "tests_require": ["mongo-orchestration>=0.2", "requests>=2.5.1"]}
 
 if sys.version_info[:2] == (2, 6):
     # Need unittest2 to run unittests in Python 2.6
-    extra_opts["tests_require"] = "unittest2"
+    extra_opts["tests_require"].append("unittest2")
     extra_opts["test_suite"] = "unittest2.collector"
 
 try:
@@ -49,8 +55,65 @@ try:
 except IOError:
     pass        # Install without README.rst
 
+
+class InstallService(Command):
+    description = "Installs Mongo Connector as a Linux system daemon"
+
+    user_options = []
+
+    def initialize_options(self):
+        pass
+
+    def finalize_options(self):
+        pass
+
+    def run(self):
+        if platform.system() != 'Linux':
+            print("Must be running Linux")
+        elif os.geteuid() > 0:
+            print("Must be root user")
+        else:
+            mkpath("/var/log/mongo-connector")
+            mkpath("/etc/init.d")
+            copy_file("./config.json", "/etc/mongo-connector.json")
+            copy_file("./scripts/mongo-connector",
+                      "/etc/init.d/mongo-connector")
+
+
+class UninstallService(Command):
+    description = "Uninstalls Mongo Connector as a Linux system daemon"
+
+    user_options = []
+
+    def initialize_options(self):
+        pass
+
+    def finalize_options(self):
+        pass
+
+    def remove_file(self, path):
+        if os.path.exists(path):
+            os.remove(path)
+            print("removing '%s'" % path)
+
+    def run(self):
+        if platform.system() != 'Linux':
+            print("Must be running Linux")
+        elif os.geteuid() > 0:
+            print("Must be root user")
+        else:
+            if os.path.exists("/var/log/mongo-connector"):
+                remove_tree("/var/log/mongo-connector")
+            self.remove_file("/etc/mongo-connector.json")
+            self.remove_file("/etc/init.d/mongo-connector")
+
+extra_opts['cmdclass'] = {
+    "install_service": InstallService,
+    "uninstall_service": UninstallService
+}
+
 setup(name='mongo-connector',
-      version="1.3.dev0",
+      version="2.1.dev0",
       author="MongoDB, Inc.",
       author_email='mongodb-user@googlegroups.com',
       description='Mongo Connector',
@@ -59,7 +122,10 @@ setup(name='mongo-connector',
       license="http://www.apache.org/licenses/LICENSE-2.0.html",
       platforms=["any"],
       classifiers=filter(None, classifiers.split("\n")),
-      install_requires=['pymongo >= 2.4', 'pysolr >= 3.1.0', 'elasticsearch < 1.0.0', 'algoliasearch >= 1.3.10'],
+      install_requires=['pymongo >= 2.7.2, < 3.0.0',
+                        'pysolr >= 3.1.0',
+                        'elasticsearch >= 1.2',
+                        'algoliasearch >= 1.5.4'],
       packages=["mongo_connector", "mongo_connector.doc_managers"],
       package_data={
           'mongo_connector.doc_managers': ['schema.xml']

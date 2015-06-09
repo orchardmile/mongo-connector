@@ -13,30 +13,24 @@
 # limitations under the License.
 
 """Integration tests for mongo-connector + Algolia."""
-import time
+"""Integration tests for mongo-connector + Elasticsearch."""
+import base64
 import os
 import sys
-if sys.version_info[:2] == (2, 6):
-    import unittest2 as unittest
-else:
-    import unittest
+import time
+
+from algoliasearch import algoliasearch
+from gridfs import GridFS
 
 sys.path[0:0] = [""]
 
-from algoliasearch import algoliasearch
-from pymongo import MongoClient
-
-from tests import elastic_pair, mongo_host, STRESS_COUNT
-from tests.setup_cluster import (start_replica_set,
-                                 kill_replica_set,
-                                 restart_mongo_proc,
-                                 kill_mongo_proc)
+from tests import elastic_pair
+from tests.setup_cluster import ReplicaSet
 from mongo_connector.doc_managers.algolia_doc_manager import DocManager
 from mongo_connector.connector import Connector
 from mongo_connector.util import retry_until_ok
-from pymongo.errors import OperationFailure, AutoReconnect
 from tests.util import assert_soon
-
+from tests import unittest
 
 class AlgoliaTestCase(unittest.TestCase):
     """Base class for all Algolia TestCases."""

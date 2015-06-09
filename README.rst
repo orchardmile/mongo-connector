@@ -1,8 +1,17 @@
+For complete documentation, check out the `Mongo Connector Wiki <https://github.com/10gen-labs/mongo-connector/wiki>`__.
+
+DISCLAIMER
+----------
+
+Please note: all tools/ scripts in this repo are released for use "AS IS" without any warranties of any kind, including, but not limited to their installation, use, or performance. We disclaim any and all warranties, either express or implied, including but not limited to any warranty of noninfringement, merchantability, and/ or fitness for a particular purpose. We do not warrant that the technology will meet your requirements, that the operation thereof will be uninterrupted or error-free, or that any errors will be corrected.
+Any use of these scripts and tools is at your own risk. There is no guarantee that they have been through thorough testing in a comparable environment and we are not responsible for any damage or data loss incurred with their use.
+You are responsible for reviewing and testing any scripts you run thoroughly before use in any non-testing environment.
+
 System Overview
 ---------------
 
 mongo-connector creates a pipeline from a MongoDB cluster to one or more
-target systems, such as Solr, ElasticSearch, or another MongoDB cluster.
+target systems, such as Solr, Elasticsearch, or another MongoDB cluster.
 By tailing the MongoDB oplog, it replicates operations from MongoDB to
 these systems in real-time. It has been tested with Python 2.6, 2.7,
 3.3, and 3.4. Detailed documentation is available on the
@@ -46,10 +55,11 @@ simplest invocation resembles the following::
 
   mongo-connector -m <mongodb server hostname>:<replica set port> \
                   -t <replication endpoint URL, e.g. http://localhost:8983/solr> \
-                  -d <path to DocManager, e.g. doc_managers/solr_doc_manager.py>
+                  -d <name of doc manager, e.g., solr_doc_manager>
 
 mongo-connector has many other options besides those demonstrated above.
 To get a full listing with descriptions, try ``mongo-connector --help``.
+You can also use mongo-connector with a `configuration file <https://github.com/10gen-labs/mongo-connector/wiki/Configuration-File>`__.
 
 Usage With Algolia
 ------------------
@@ -263,15 +273,15 @@ trick::
 
 **Running mongo-connector after a long time**
 
-If you see a message like this from mongo-connector::
+If you want to jump-start into using mongo-connector with a another particular system, check out:
 
-  ERROR - OplogManager: Last entry no longer in oplog cannot recover! ...
+- `Usage with Solr <https://github.com/10gen-labs/mongo-connector/wiki/Usage%20with%20Solr>`__
+- `Usage with Elasticsearch <https://github.com/10gen-labs/mongo-connector/wiki/Usage%20with%20ElasticSearch>`__
+- `Usage with MongoDB <https://github.com/10gen-labs/mongo-connector/wiki/Usage%20with%20MongoDB>`__
 
-then mongo-connector may have fallen behind in the oplog, and
-discrepencies must now be resolved between the contents of the target
-system and those in MongoDB. If you're just playing around with
-mongo-connector, however, then you may have stopped mongo-connector,
-made a bunch of requests to MongoDB or perhaps started a new replica
-set, then restarted mongo-connector, which will also cause this issue.
-In the latter case, all you need to do is use a new ``--oplog-ts`` file
-or erase the old one.
+Troubleshooting/Questions
+-------------------------
+
+Having trouble with installation? Have a question about Mongo Connector?
+Your question or problem may be answered in the `FAQ <https://github.com/10gen-labs/mongo-connector/wiki/FAQ>`__ or in the `wiki <https://github.com/10gen-labs/mongo-connector/wiki>`__.
+If you can't find the answer to your question or problem there, feel free to `open an issue <https://github.com/10gen-labs/mongo-connector/issues>`__ on Mongo Connector's Github page.
