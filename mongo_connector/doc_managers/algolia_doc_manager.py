@@ -250,7 +250,8 @@ class DocManager(DocManagerBase):
                     doc[attr] = None
         return doc
 
-    def update(self, doc, update_spec, namespace = None, timestamp = None):
+    def update(self, document_id, update_spec, namespace = None, timestamp = None):
+        doc = self.index.getObject(str(document_id))
         self.upsert(self.apply_update(doc, update_spec), True)
 
     def upsert(self, doc, update = False, namespace = None, timestamp = None):
@@ -274,13 +275,13 @@ class DocManager(DocManagerBase):
             if len(self.batch) >= DocManager.BATCH_SIZE:
                 self.commit()
 
-    def remove(self, doc, namespace = None, timestamp = None):
+    def remove(self, document_id, namespace = None, timestamp = None):
         """ Removes documents from Algolia
         """
         with self.mutex:
             self.batch.append(
                 {'action': 'deleteObject',
-                 'body': {'objectID': str(doc[self.unique_key])}})
+                 'body': {'objectID': str(document_id)}})
             if len(self.batch) >= DocManager.BATCH_SIZE:
                 self.commit()
 
