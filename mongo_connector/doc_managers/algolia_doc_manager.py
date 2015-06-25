@@ -114,7 +114,7 @@ def filter_value(value, expr):
         return eval(re.sub(r'\$_', 'value', expr))
     except Exception as e:
         logging.warn("""
-            Error raised from expression: {filter} with value {value}
+            Error raised from expression: {expr} with value {value}
             """.format(**locals()))
         logging.warn(e)
         # return false to prevent potentially sensitive data from being synced:
