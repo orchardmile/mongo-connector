@@ -251,7 +251,13 @@ class DocManager(DocManagerBase):
         return doc
 
     def update(self, document_id, update_spec, namespace = None, timestamp = None):
-        doc = self.index.getObject(str(document_id))
+        try:
+            doc = self.index.getObject(str(document_id))
+        except AlgoliaException:
+            # The document is not in the index due to a delay or an error
+            logging.warn("Update a missing object")
+            doc = {}
+            doc[self.unique_key] = str(document_id)
         self.upsert(self.apply_update(doc, update_spec), True)
 
     def upsert(self, doc, update = False, namespace = None, timestamp = None):
