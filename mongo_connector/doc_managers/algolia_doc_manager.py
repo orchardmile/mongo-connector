@@ -242,17 +242,12 @@ class DocManager(DocManagerBase):
                     state = False
         return (filtered_doc, state)
 
-    def apply_update(self, doc, update_spec):
-        doc = super(DocManager, self).apply_update(doc, update_spec)
-        if "$unset" in update_spec:
-            for attr in update_spec["$unset"]:
-                if update_spec["$unset"][attr]:
-                    doc[attr] = None
-        return doc
-
     def update_can_be_ignored(self, update_spec):
 
         if not self.attributes_filter:
+            return False
+
+        if "$set" not in update_spec and "$unset" not in update_spec:
             return False
 
         def attr_can_be_ignored(attr):
@@ -277,14 +272,51 @@ class DocManager(DocManagerBase):
         logging.debug("Algolia Connector: Update can be ignored")
         return True
 
+    def _db_and_collection(self, namespace):
+        return namespace.split('.', 1)
+
+    def get_source_doc(self, document_id, namespace):
+        db, coll = self._db_and_collection(namespace)
+        if not hasattr(self, 'connector_mongo_client'):
+            raise Exception('connector mongo client not found')
+        doc = self.connector_mongo_client[db][coll].find(
+            {'_id': document_id},
+        )[0]
+        return doc
+
+    def convert_update_spec_to_partial_doc(self, update_spec):
+        if "$set" in update_spec:
+            specAttrs = update_spec["$set"]
+            for attr in specAttrs:
+                set_at(update_spec, attr, specAttrs.get(attr))
+            del update_spec["$set"]
+        if "$unset" in update_spec:
+            specAttrs = update_spec["$unset"]
+            for attr in specAttrs:
+                set_at(update_spec, attr, None)
+            del update_spec["$unset"]
+
+
     def update(self, document_id, update_spec, namespace = None, timestamp = None):
 
         if self.update_can_be_ignored(update_spec):
             logging.info("Algolia Connector: Update Skipped (no changes passed the filter)")
             return
 
-        doc = self.index.getObject(str(document_id))
-        self.upsert(self.apply_update(doc, update_spec), True)
+        if "$set" not in update_spec and "$unset" not in update_spec:
+            logging.info("Algolia Connector: Document full replace")
+            self.upsert(update_spec, False, namespace, timestamp)
+        elif (self.postproc is not None):
+            # if postproc is used, mongo update_spec cannot be applied to a processed doc
+            # the full source document from mongo is needed
+            logging.info("Algolia Connector: Reprocessing source document")
+            doc = self.get_source_doc(document_id, namespace)
+            self.upsert(doc, False, namespace, timestamp)
+        else:
+            # convert mongo update_spec to algolia partial update body
+            logging.info("Algolia Connector: Partial update")
+            partial_doc = convert_update_spec_to_partial_doc(update_spec)
+            self.upsert(partial_doc, True, namespace, timestamp)
 
     def upsert(self, doc, update = False, namespace = None, timestamp = None):
         """ Update or insert a document into Algolia

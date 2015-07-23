@@ -268,6 +268,12 @@ class Connector(threading.Thread):
         except pymongo.errors.OperationFailure:
             conn_type = "REPLSET"
 
+        def share_client_with_doc_managers(conn, doc_managers):
+            for dm in doc_managers:
+                dm.connector_mongo_client = conn
+
+        share_client_with_doc_managers(main_conn, self.doc_managers)
+
         if conn_type == "REPLSET":
             # Make sure we are connected to a replica set
             is_master = main_conn.admin.command("isMaster")
@@ -285,6 +291,8 @@ class Connector(threading.Thread):
                 tz_aware=self.tz_aware, **self.ssl_kwargs)
             if self.auth_key is not None:
                 main_conn.admin.authenticate(self.auth_username, self.auth_key)
+
+            share_client_with_doc_managers(main_conn, self.doc_managers)
 
             # non sharded configuration
             oplog = OplogThread(
