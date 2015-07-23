@@ -250,14 +250,40 @@ class DocManager(DocManagerBase):
                     doc[attr] = None
         return doc
 
+    def update_can_be_ignored(self, update_spec):
+
+        if not self.attributes_filter:
+            return False
+
+        def attr_can_be_ignored(attr):
+            path = clean_path(re.sub(r'\.\d+\.', '.', attr))
+            if get_at(self.attributes_filter, path, False) is not None:
+                return False
+            return True
+
+        if "$set" in update_spec:
+            specAttrs = self.apply_remap(update_spec["$set"])
+            for attr in specAttrs:
+                if not attr_can_be_ignored(attr):
+                    logging.debug("Algolia Connector: Update needed ($set " + attr + ")")
+                    return False
+        if "$unset" in update_spec:
+            specAttrs = self.apply_remap(update_spec["$unset"])
+            for attr in specAttrs:
+                if not attr_can_be_ignored(attr):
+                    logging.debug("Algolia Connector: Update needed ($unset " + attr + ")")
+                    return False
+
+        logging.debug("Algolia Connector: Update can be ignored")
+        return True
+
     def update(self, document_id, update_spec, namespace = None, timestamp = None):
-        try:
-            doc = self.index.getObject(str(document_id))
-        except AlgoliaException:
-            # The document is not in the index due to a delay or an error
-            logging.warn("Update a missing object")
-            doc = {}
-            doc[self.unique_key] = str(document_id)
+
+        if self.update_can_be_ignored(update_spec):
+            logging.info("Algolia Connector: Update Skipped (no changes passed the filter)")
+            return
+
+        doc = self.index.getObject(str(document_id))
         self.upsert(self.apply_update(doc, update_spec), True)
 
     def upsert(self, doc, update = False, namespace = None, timestamp = None):
