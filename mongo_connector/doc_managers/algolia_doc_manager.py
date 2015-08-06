@@ -128,10 +128,9 @@ class DocManager(DocManagerBase):
         Algolia's native 'objectID' field is used to store the unique_key.
         """
 
-    BATCH_SIZE = 1000
-    AUTO_COMMIT_DELAY_S = 10
-
-    def __init__(self, url, unique_key='_id', **kwargs):
+    def __init__(self, url, unique_key='_id',
+        auto_commit_interval=DEFAULT_COMMIT_INTERVAL,
+        chunk_size=DEFAULT_MAX_BULK,  **kwargs):
         """Establish a connection to Algolia using target url
             'APPLICATION_ID:API_KEY:INDEX_NAME'
         """
@@ -142,8 +141,10 @@ class DocManager(DocManagerBase):
         self.last_object_id = None
         self.batch = []
         self.mutex = RLock()
-        self.auto_commit = kwargs.pop('auto_commit', True)
-        if self.auto_commit:
+
+        self.auto_commit_interval = auto_commit_interval
+        self.chunk_size = chunk_size
+        if self.auto_commit_interval not in [None, 0]:
             self.run_auto_commit()
 
         try:
@@ -280,7 +281,7 @@ class DocManager(DocManagerBase):
                 exec(re.sub(r"_\$", "filtered_doc", self.postproc))
 
             self.batch.append({'action': 'partialUpdateObject' if update else 'addObject', 'body': filtered_doc})
-            if len(self.batch) >= DocManager.BATCH_SIZE:
+            if len(self.batch) >= self.chunk_size:
                 self.commit()
 
     def remove(self, document_id, namespace = None, timestamp = None):
@@ -290,7 +291,7 @@ class DocManager(DocManagerBase):
             self.batch.append(
                 {'action': 'deleteObject',
                  'body': {'objectID': str(document_id)}})
-            if len(self.batch) >= DocManager.BATCH_SIZE:
+            if len(self.batch) >= self.chunk_size:
                 self.commit()
 
     def search(self, start_ts, end_ts):
@@ -331,8 +332,8 @@ class DocManager(DocManagerBase):
             self.commit(True)
         except Exception as e:
             logging.warning(e)
-        if self.auto_commit:
-            Timer(DocManager.AUTO_COMMIT_DELAY_S, self.run_auto_commit).start()
+        if self.auto_commit_interval not in [None, 0]:
+            Timer(self.auto_commit_interval, self.run_auto_commit).start()
 
     def get_last_doc(self):
         """ Returns the last document stored in Algolia.
