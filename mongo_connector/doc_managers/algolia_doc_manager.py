@@ -128,9 +128,11 @@ class DocManager(DocManagerBase):
         Algolia's native 'objectID' field is used to store the unique_key.
         """
 
-    def __init__(self, url, unique_key='_id',
-        auto_commit_interval=DEFAULT_COMMIT_INTERVAL,
-        chunk_size=DEFAULT_MAX_BULK,  **kwargs):
+    def __init__(self, url,
+        unique_key='_id',
+        auto_commit_interval=10,
+        chunk_size=1000,
+        **kwargs):
         """Establish a connection to Algolia using target url
             'APPLICATION_ID:API_KEY:INDEX_NAME'
         """
