@@ -132,6 +132,7 @@ class DocManager(DocManagerBase):
         unique_key='_id',
         auto_commit_interval=10,
         chunk_size=1000,
+        commit_sync=False,
         commit_waittask_interval=1,
         **kwargs):
         """Establish a connection to Algolia using target url
@@ -147,6 +148,7 @@ class DocManager(DocManagerBase):
 
         self.auto_commit_interval = auto_commit_interval
         self.chunk_size = chunk_size
+        self.commit_sync = commit_sync
         self.commit_waittask_interval = commit_waittask_interval
         if self.auto_commit_interval not in [None, 0]:
             self.run_auto_commit()
@@ -312,7 +314,7 @@ class DocManager(DocManagerBase):
             raise errors.ConnectionFailed(
                 "Could not connect to Algolia Search: %s" % e)
 
-    def commit(self, synchronous=False):
+    def commit(self):
         """ Send the current batch of updates
         """
         try:
@@ -320,10 +322,10 @@ class DocManager(DocManagerBase):
             with self.mutex:
                 if len(self.batch) == 0:
                     return
-                res = self.index.batch({'requests': self.batch})
+                self.index.batch({'requests': self.batch})
                 res = self.index.setSettings({'userData': {'lastObjectID': self.last_object_id}})
                 self.batch = []
-                if synchronous:
+                if self.commit_sync:
                     self.index.waitTask(res['taskID'], self.commit_waittask_interval * 1000)
         except (algoliasearch.AlgoliaException, urllib3.exceptions.MaxRetryError) as e:
             raise errors.OperationFailed(
@@ -333,7 +335,7 @@ class DocManager(DocManagerBase):
         """ Periodically commits to Algolia.
         """
         try:
-            self.commit(True)
+            self.commit()
         except Exception as e:
             logging.warning(e)
         if self.auto_commit_interval not in [None, 0]:
