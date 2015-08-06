@@ -132,6 +132,7 @@ class DocManager(DocManagerBase):
         unique_key='_id',
         auto_commit_interval=10,
         chunk_size=1000,
+        commit_waittask_interval=1,
         **kwargs):
         """Establish a connection to Algolia using target url
             'APPLICATION_ID:API_KEY:INDEX_NAME'
@@ -146,6 +147,7 @@ class DocManager(DocManagerBase):
 
         self.auto_commit_interval = auto_commit_interval
         self.chunk_size = chunk_size
+        self.commit_waittask_interval = commit_waittask_interval
         if self.auto_commit_interval not in [None, 0]:
             self.run_auto_commit()
 
@@ -318,11 +320,11 @@ class DocManager(DocManagerBase):
             with self.mutex:
                 if len(self.batch) == 0:
                     return
-                self.index.batch({'requests': self.batch})
+                res = self.index.batch({'requests': self.batch})
                 res = self.index.setSettings({'userData': {'lastObjectID': self.last_object_id}})
                 self.batch = []
                 if synchronous:
-                    self.index.waitTask(res['taskID'])
+                    self.index.waitTask(res['taskID'], self.commit_waittask_interval * 1000)
         except (algoliasearch.AlgoliaException, urllib3.exceptions.MaxRetryError) as e:
             raise errors.OperationFailed(
                 "Could not connect to Algolia Search: %s" % e)
