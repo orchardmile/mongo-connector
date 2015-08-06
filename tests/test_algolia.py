@@ -38,7 +38,7 @@ class AlgoliaTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.algolia_client = algoliasearch.Client(os.environ['ALGOLIA_APPLICATION_ID'], os.environ['ALGOLIA_API_KEY'])
-        cls.algolia_doc = DocManager('%s:%s:%s' % (os.environ['ALGOLIA_APPLICATION_ID'], os.environ['ALGOLIA_API_KEY'], 'test_mongo_connector'), auto_commit_interval=0)
+        cls.algolia_doc = DocManager('%s:%s:%s' % (os.environ['ALGOLIA_APPLICATION_ID'], os.environ['ALGOLIA_API_KEY'], 'test_mongo_connector'), auto_commit_interval=0, commit_sync=True)
 
     def setUp(self):
         self.algolia_index = self.algolia_client.initIndex('test_mongo_connector')
