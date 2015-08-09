@@ -128,10 +128,13 @@ class DocManager(DocManagerBase):
         Algolia's native 'objectID' field is used to store the unique_key.
         """
 
-    BATCH_SIZE = 1000
-    AUTO_COMMIT_DELAY_S = 10
-
-    def __init__(self, url, unique_key='_id', **kwargs):
+    def __init__(self, url,
+        unique_key='_id',
+        auto_commit_interval=10,
+        chunk_size=1000,
+        commit_sync=False,
+        commit_waittask_interval=1,
+        **kwargs):
         """Establish a connection to Algolia using target url
             'APPLICATION_ID:API_KEY:INDEX_NAME'
         """
@@ -142,8 +145,14 @@ class DocManager(DocManagerBase):
         self.last_object_id = None
         self.batch = []
         self.mutex = RLock()
-        self.auto_commit = kwargs.pop('auto_commit', True)
-        self.run_auto_commit()
+
+        self.auto_commit_interval = auto_commit_interval
+        self.chunk_size = chunk_size
+        self.commit_sync = commit_sync
+        self.commit_waittask_interval = commit_waittask_interval
+        if self.auto_commit_interval not in [None, 0]:
+            self.run_auto_commit()
+
         try:
             json = open("algolia_fields_" + index + ".json", 'r')
             self.attributes_filter = decoder.decode(json.read())
@@ -336,7 +345,7 @@ class DocManager(DocManagerBase):
                 exec(re.sub(r"_\$", "filtered_doc", self.postproc))
 
             self.batch.append({'action': 'partialUpdateObject' if update else 'addObject', 'body': filtered_doc})
-            if len(self.batch) >= DocManager.BATCH_SIZE:
+            if len(self.batch) >= self.chunk_size:
                 self.commit()
 
     def remove(self, document_id, namespace = None, timestamp = None):
@@ -346,7 +355,7 @@ class DocManager(DocManagerBase):
             self.batch.append(
                 {'action': 'deleteObject',
                  'body': {'objectID': str(document_id)}})
-            if len(self.batch) >= DocManager.BATCH_SIZE:
+            if len(self.batch) >= self.chunk_size:
                 self.commit()
 
     def search(self, start_ts, end_ts):
@@ -363,7 +372,7 @@ class DocManager(DocManagerBase):
             raise errors.ConnectionFailed(
                 "Could not connect to Algolia Search: %s" % e)
 
-    def commit(self, synchronous=False):
+    def commit(self):
         """ Send the current batch of updates
         """
         try:
@@ -374,8 +383,8 @@ class DocManager(DocManagerBase):
                 self.index.batch({'requests': self.batch})
                 res = self.index.setSettings({'userData': {'lastObjectID': self.last_object_id}})
                 self.batch = []
-                if synchronous:
-                    self.index.waitTask(res['taskID'])
+                if self.commit_sync:
+                    self.index.waitTask(res['taskID'], self.commit_waittask_interval * 1000)
         except (algoliasearch.AlgoliaException, urllib3.exceptions.MaxRetryError) as e:
             raise errors.OperationFailed(
                 "Could not connect to Algolia Search: %s" % e)
@@ -384,11 +393,11 @@ class DocManager(DocManagerBase):
         """ Periodically commits to Algolia.
         """
         try:
-            self.commit(True)
+            self.commit()
         except Exception as e:
             logging.warning(e)
-        if self.auto_commit:
-            Timer(DocManager.AUTO_COMMIT_DELAY_S, self.run_auto_commit).start()
+        if self.auto_commit_interval not in [None, 0]:
+            Timer(self.auto_commit_interval, self.run_auto_commit).start()
 
     def get_last_doc(self):
         """ Returns the last document stored in Algolia.

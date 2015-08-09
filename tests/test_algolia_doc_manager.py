@@ -33,23 +33,23 @@ class AlgoliaDocManagerTester(AlgoliaTestCase):
         """Test the update method."""
         doc = {"_id": '1', "a": 1, "b": 2}
         self.algolia_doc.upsert(doc)
-        self.algolia_doc.commit(True)
+        self.algolia_doc.commit()
         # $set only
         update_spec = {"$set": {"a": 1, "b": 2}}
         self.algolia_doc.update(doc, update_spec)
-        self.algolia_doc.commit(True)
+        self.algolia_doc.commit()
         doc = self.algolia_index.getObject('1')
         self.assertEqual(doc, {"_id": '1', "objectID": '1', "a": 1, "b": 2})
         # $unset only
         update_spec = {"$unset": {"a": True}}
         self.algolia_doc.update(doc, update_spec)
-        self.algolia_doc.commit(True)
+        self.algolia_doc.commit()
         doc = self.algolia_index.getObject('1')
         self.assertEqual(doc, {"_id": '1', "objectID": '1', "b": 2, "a": None})
         # mixed $set/$unset
         update_spec = {"$unset": {"b": True}, "$set": {"c": 3}}
         self.algolia_doc.update(doc, update_spec)
-        self.algolia_doc.commit(True)
+        self.algolia_doc.commit()
         doc = self.algolia_index.getObject('1')
         self.assertEqual(doc, {"_id": '1', "objectID": '1', "c": 3, "a": None, "b": None})
 
@@ -57,7 +57,7 @@ class AlgoliaDocManagerTester(AlgoliaTestCase):
         """Test the upsert method."""
         docc = {'_id': '1', 'name': 'John'}
         self.algolia_doc.upsert(docc)
-        self.algolia_doc.commit(True)
+        self.algolia_doc.commit()
         res = self.algolia_index.search('')["hits"]
         for doc in res:
             self.assertEqual(doc['_id'], '1')
@@ -66,11 +66,11 @@ class AlgoliaDocManagerTester(AlgoliaTestCase):
     def test_bulk_upsert(self):
         """Test the bulk_upsert method."""
         self.algolia_doc.bulk_upsert([], *TESTARGS)
-        self.algolia_doc.commit(True)
+        self.algolia_doc.commit()
 
         docs = ({"_id": i} for i in range(100))
         self.algolia_doc.bulk_upsert(docs, *TESTARGS)
-        self.algolia_doc.commit(True)
+        self.algolia_doc.commit()
         res = self.algolia_index.search('', { 'hitsPerPage': 101 })["hits"]
         returned_ids = sorted(int(doc["_id"]) for doc in res)
         self.assertEqual(len(returned_ids), 100)
@@ -79,7 +79,7 @@ class AlgoliaDocManagerTester(AlgoliaTestCase):
 
         docs = ({"_id": i, "weight": 2*i} for i in range(100))
         self.algolia_doc.bulk_upsert(docs, *TESTARGS)
-        self.algolia_doc.commit(True)
+        self.algolia_doc.commit()
 
         res = self.algolia_index.search('', { 'hitsPerPage': 101 })["hits"]
         returned_ids = sorted(int(doc["weight"]) for doc in res)
@@ -91,12 +91,12 @@ class AlgoliaDocManagerTester(AlgoliaTestCase):
         """Test the remove method."""
         docc = {'_id': '1', 'name': 'John'}
         self.algolia_doc.upsert(docc)
-        self.algolia_doc.commit(True)
+        self.algolia_doc.commit()
         res = self.algolia_index.search('')["hits"]
         self.assertEqual(len(res), 1)
 
         self.algolia_doc.remove(docc)
-        self.algolia_doc.commit(True)
+        self.algolia_doc.commit()
         res = self.algolia_index.search('')["hits"]
         self.assertEqual(len(res), 0)
 
@@ -114,7 +114,7 @@ class AlgoliaDocManagerTester(AlgoliaTestCase):
         self.algolia_doc.upsert(docc)
         docc = {'_id': '6', 'name': 'Mr T.', '_ts': ts+1, 'ns': 'test.test'}
         self.algolia_doc.upsert(docc)
-        self.algolia_doc.commit(True)
+        self.algolia_doc.commit()
 
         self.assertEqual(self.algolia_index.search('')['nbHits'], 3)
         doc = self.elastic_doc.get_last_doc()
@@ -122,7 +122,7 @@ class AlgoliaDocManagerTester(AlgoliaTestCase):
 
         docc = {'_id': '6', 'name': 'HareTwin', '_ts': ts+4, 'ns': 'test.test'}
         self.elastic_doc.upsert(docc)
-        self.algolia_doc.commit(True)
+        self.algolia_doc.commit()
 
         doc = self.elastic_doc.get_last_doc()
         self.assertEqual(doc['_id'], '6')
