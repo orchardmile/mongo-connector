@@ -132,7 +132,7 @@ class DocManager(DocManagerBase):
         unique_key='_id',
         auto_commit_interval=10,
         chunk_size=1000,
-        commit_sync=True,
+        commit_sync=False,
         commit_waittask_interval=1,
         **kwargs):
         """Establish a connection to Algolia using target url
@@ -404,6 +404,7 @@ class DocManager(DocManagerBase):
             self.commit()
         except Exception as e:
             logging.warning(e)
+        logging.info("Algolia Connector: AUTO_COMMIT_INTERVAL every " + str(self.auto_commit_interval) + " second(s)")
         if self.auto_commit_interval not in [None, 0]:
             Timer(self.auto_commit_interval, self.run_auto_commit).start()
 
