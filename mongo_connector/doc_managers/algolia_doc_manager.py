@@ -388,7 +388,7 @@ class DocManager(DocManagerBase):
                     return
                 self.index.batch({'requests': self.batch})
                 res = self.index.setSettings({'userData': {'lastObjectID': self.last_object_id}})
-                logging.debug("Algolia Connector: commited with taskID " + res['taskID'])
+                logging.debug("Algolia Connector: commited with taskID " + str(res['taskID']))
                 self.batch = []
                 if self.commit_sync:
                     self.index.waitTask(res['taskID'], self.commit_waittask_interval * 1000)
