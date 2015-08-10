@@ -42,7 +42,6 @@ from mongo_connector.doc_managers.formatters import DefaultDocumentFormatter
 
 decoder = json.JSONDecoder()
 
-
 def clean_path(dirty):
     """Convert a string of python subscript notation or mongo dot-notation to a
         list of strings.
@@ -130,10 +129,10 @@ class DocManager(DocManagerBase):
 
     def __init__(self, url,
         unique_key='_id',
-        auto_commit_interval=10,
-        chunk_size=1000,
-        commit_sync=False,
-        commit_waittask_interval=1,
+        algolia_auto_commit_interval=10,
+        algolia_commit_chunk_size=1000,
+        algolia_commit_sync=False,
+        algolia_commit_waittask_interval=1,
         **kwargs):
         """Establish a connection to Algolia using target url
             'APPLICATION_ID:API_KEY:INDEX_NAME'
@@ -142,26 +141,22 @@ class DocManager(DocManagerBase):
         self.algolia = algoliasearch.Client(application_id, api_key)
         self.index = self.algolia.initIndex(index)
         logging.info("Algolia Connector: APP is " + str(application_id))
-        print "Algolia Connector: APP is " + str(application_id)
         logging.info("Algolia Connector: INDEX is " + str(index))
-        print "Algolia Connector: INDEX is " + str(index)
 
         self.unique_key = unique_key
         self.last_object_id = None
         self.batch = []
         self.mutex = RLock()
 
-        self.auto_commit_interval = auto_commit_interval
-        self.chunk_size = chunk_size
-        self.commit_sync = commit_sync
-        self.commit_waittask_interval = commit_waittask_interval
+        self.auto_commit_interval = algolia_auto_commit_interval
+        self.chunk_size = algolia_commit_chunk_size
+        self.commit_sync = algolia_commit_sync
+        self.commit_waittask_interval = algolia_commit_waittask_interval
         if self.auto_commit_interval not in [None, 0]:
-            logging.info("Algolia Connector: AUTO_COMMIT_INTERVAL every " + str(self.auto_commit_interval) + " second(s)")
-            logging.info("Algolia Connector: CHUNK_SIZE is " + str(self.chunk_size))
-            logging.info("Algilia Connector: COMMIT_WAITTASK_INTERVAL is " + str(self.commit_waittask_interval) + " second(s)")
-            print "Algolia Connector: AUTO_COMMIT_INTERVAL every " + str(self.auto_commit_interval) + " second(s)"
-            print "Algolia Connector: CHUNK_SIZE is " + str(self.chunk_size)
-            print "Algilia Connector: COMMIT_WAITTASK_INTERVAL is " + str(self.commit_waittask_interval) + " second(s)"
+            logging.info("Algolia Connector: algolia_auto_commit_interval every " + str(self.auto_commit_interval) + " second(s)")
+            logging.info("Algolia Connector: algolia_commit_chunk_size is " + str(self.chunk_size))
+            logging.info("Algolia Connector: algolia_commit_sync is " + str(self.commit_sync))
+            logging.info("Algilia Connector: algolia_commit_waittask_interval is " + str(self.commit_waittask_interval) + " second(s)")
             self.run_auto_commit()
 
         try:
@@ -394,7 +389,6 @@ class DocManager(DocManagerBase):
                 self.index.batch({'requests': self.batch})
                 res = self.index.setSettings({'userData': {'lastObjectID': self.last_object_id}})
                 logging.debug("Algolia Connector: commited with taskID " + str(res['taskID']))
-                print "Algolia Connector: commited with taskID " + str(res['taskID'])
                 self.batch = []
                 if self.commit_sync:
                     self.index.waitTask(res['taskID'], self.commit_waittask_interval * 1000)
@@ -406,8 +400,6 @@ class DocManager(DocManagerBase):
         """ Periodically commits to Algolia.
         """
         try:
-            logging.debug("Algolia Connector: periodical commit attempt")
-            print "Algolia Connector: periodical commit attempt"
             self.commit()
         except Exception as e:
             logging.warning(e)
