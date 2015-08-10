@@ -142,7 +142,9 @@ class DocManager(DocManagerBase):
         self.algolia = algoliasearch.Client(application_id, api_key)
         self.index = self.algolia.initIndex(index)
         logging.info("Algolia Connector: APP is " + str(application_id))
+        print "Algolia Connector: APP is " + str(application_id)
         logging.info("Algolia Connector: INDEX is " + str(index))
+        print "Algolia Connector: INDEX is " + str(index)
 
         self.unique_key = unique_key
         self.last_object_id = None
@@ -157,6 +159,9 @@ class DocManager(DocManagerBase):
             logging.info("Algolia Connector: AUTO_COMMIT_INTERVAL every " + str(self.auto_commit_interval) + " second(s)")
             logging.info("Algolia Connector: CHUNK_SIZE is " + str(self.chunk_size))
             logging.info("Algilia Connector: COMMIT_WAITTASK_INTERVAL is " + str(self.commit_waittask_interval) + " second(s)")
+            print "Algolia Connector: AUTO_COMMIT_INTERVAL every " + str(self.auto_commit_interval) + " second(s)"
+            print "Algolia Connector: CHUNK_SIZE is " + str(self.chunk_size)
+            print "Algilia Connector: COMMIT_WAITTASK_INTERVAL is " + str(self.commit_waittask_interval) + " second(s)"
             self.run_auto_commit()
 
         try:
@@ -389,6 +394,7 @@ class DocManager(DocManagerBase):
                 self.index.batch({'requests': self.batch})
                 res = self.index.setSettings({'userData': {'lastObjectID': self.last_object_id}})
                 logging.debug("Algolia Connector: commited with taskID " + str(res['taskID']))
+                print "Algolia Connector: commited with taskID " + str(res['taskID'])
                 self.batch = []
                 if self.commit_sync:
                     self.index.waitTask(res['taskID'], self.commit_waittask_interval * 1000)
@@ -401,10 +407,10 @@ class DocManager(DocManagerBase):
         """
         try:
             logging.debug("Algolia Connector: periodical commit attempt")
+            print "Algolia Connector: periodical commit attempt"
             self.commit()
         except Exception as e:
             logging.warning(e)
-        logging.info("Algolia Connector: AUTO_COMMIT_INTERVAL every " + str(self.auto_commit_interval) + " second(s)")
         if self.auto_commit_interval not in [None, 0]:
             Timer(self.auto_commit_interval, self.run_auto_commit).start()
 
