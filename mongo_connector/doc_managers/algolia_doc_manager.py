@@ -42,7 +42,6 @@ from mongo_connector.doc_managers.formatters import DefaultDocumentFormatter
 
 decoder = json.JSONDecoder()
 
-
 def clean_path(dirty):
     """Convert a string of python subscript notation or mongo dot-notation to a
         list of strings.
@@ -130,10 +129,10 @@ class DocManager(DocManagerBase):
 
     def __init__(self, url,
         unique_key='_id',
-        auto_commit_interval=10,
-        chunk_size=1000,
-        commit_sync=False,
-        commit_waittask_interval=1,
+        algolia_auto_commit_interval=10,
+        algolia_commit_chunk_size=1000,
+        algolia_commit_sync=False,
+        algolia_commit_waittask_interval=1,
         **kwargs):
         """Establish a connection to Algolia using target url
             'APPLICATION_ID:API_KEY:INDEX_NAME'
@@ -149,14 +148,15 @@ class DocManager(DocManagerBase):
         self.batch = []
         self.mutex = RLock()
 
-        self.auto_commit_interval = auto_commit_interval
-        self.chunk_size = chunk_size
-        self.commit_sync = commit_sync
-        self.commit_waittask_interval = commit_waittask_interval
+        self.auto_commit_interval = algolia_auto_commit_interval
+        self.chunk_size = algolia_commit_chunk_size
+        self.commit_sync = algolia_commit_sync
+        self.commit_waittask_interval = algolia_commit_waittask_interval
         if self.auto_commit_interval not in [None, 0]:
-            logging.info("Algolia Connector: AUTO_COMMIT_INTERVAL every " + str(self.auto_commit_interval) + " second(s)")
-            logging.info("Algolia Connector: CHUNK_SIZE is " + str(self.chunk_size))
-            logging.info("Algilia Connector: COMMIT_WAITTASK_INTERVAL is " + str(self.commit_waittask_interval) + " second(s)")
+            logging.info("Algolia Connector: algolia_auto_commit_interval every " + str(self.auto_commit_interval) + " second(s)")
+            logging.info("Algolia Connector: algolia_commit_chunk_size is " + str(self.chunk_size))
+            logging.info("Algolia Connector: algolia_commit_sync is " + str(self.commit_sync))
+            logging.info("Algilia Connector: algolia_commit_waittask_interval is " + str(self.commit_waittask_interval) + " second(s)")
             self.run_auto_commit()
 
         try:
