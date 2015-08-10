@@ -132,7 +132,7 @@ class DocManager(DocManagerBase):
         unique_key='_id',
         auto_commit_interval=10,
         chunk_size=1000,
-        commit_sync=False,
+        commit_sync=True,
         commit_waittask_interval=1,
         **kwargs):
         """Establish a connection to Algolia using target url
@@ -400,6 +400,7 @@ class DocManager(DocManagerBase):
         """ Periodically commits to Algolia.
         """
         try:
+            logging.debug("Algolia Connector: periodical commit attempt")
             self.commit()
         except Exception as e:
             logging.warning(e)
