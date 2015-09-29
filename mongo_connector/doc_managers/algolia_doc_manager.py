@@ -251,7 +251,7 @@ class DocManager(DocManagerBase):
             return False
 
         def attr_can_be_ignored(attr):
-            path = clean_path(re.sub(r'\.\d+\.', '.', attr))
+            path = clean_path(re.sub(r'\.(?:\$|\d+)\.', '.', attr))
             if get_at(self.attributes_filter, path, False) is not None:
                 return False
             return True
