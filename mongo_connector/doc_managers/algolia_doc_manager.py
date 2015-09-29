@@ -110,6 +110,8 @@ def filter_value(value, expr):
     """Evaluate the given expression in the context of the given value."""
     if expr == "":
         return True
+    if value is None:
+        return False
     try:
         return eval(re.sub(r'\$_', 'value', expr))
     except Exception as e:
