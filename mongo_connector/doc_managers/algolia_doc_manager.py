@@ -270,6 +270,18 @@ class DocManager(DocManagerBase):
                     return False
 
         logging.debug("Algolia Connector: Update can be ignored")
+
+        if "$set" in update_spec:
+            specAttrs = self.apply_remap(update_spec["$set"])
+            for attr in specAttrs:
+                if attr_can_be_ignored(attr):
+                    logging.debug("Ignoring: $set " + attr)
+        if "$unset" in update_spec:
+            specAttrs = self.apply_remap(update_spec["$unset"])
+            for attr in specAttrs:
+                if attr_can_be_ignored(attr):
+                    logging.debug("Ignoring: $unset " + attr)
+
         return True
 
     def _db_and_collection(self, namespace):
